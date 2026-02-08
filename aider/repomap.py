@@ -6,7 +6,7 @@ import shutil
 import sqlite3
 import sys
 import time
-from collections import Counter, defaultdict, namedtuple
+from collections import Counter, defaultdict, namedtuple, OrderedDict
 from importlib import resources
 from pathlib import Path
 
@@ -25,6 +25,10 @@ from aider.waiting import Spinner
 Tag = namedtuple("Tag", "rel_fname fname line name kind".split())
 
 
+SCM_PATH_CACHE = {}
+LEXER_CACHE = {}
+
+
 SQLITE_ERRORS = (sqlite3.OperationalError, sqlite3.DatabaseError, OSError)
 
 
@@ -33,6 +37,34 @@ if USING_TSL_PACK:
     CACHE_VERSION = 4
 
 UPDATING_REPO_MAP_MESSAGE = "Updating repo map"
+
+TREE_CACHE_MAX_ENTRIES = 256
+MAP_CACHE_MAX_ENTRIES = 64
+
+
+class BoundedCache(OrderedDict):
+    def __init__(self, max_entries):
+        self.max_entries = max_entries
+        super().__init__()
+
+    def __getitem__(self, key):
+        value = super().__getitem__(key)
+        self.move_to_end(key)
+        return value
+
+    def get(self, key, default=None):
+        if key in self:
+            value = super().get(key)
+            self.move_to_end(key)
+            return value
+        return default
+
+    def __setitem__(self, key, value):
+        if key in self:
+            del self[key]
+        super().__setitem__(key, value)
+        while len(self) > self.max_entries:
+            self.popitem(last=False)
 
 
 class RepoMap:
@@ -71,9 +103,9 @@ class RepoMap:
 
         self.main_model = main_model
 
-        self.tree_cache = {}
+        self.tree_cache = BoundedCache(TREE_CACHE_MAX_ENTRIES)
         self.tree_context_cache = {}
-        self.map_cache = {}
+        self.map_cache = BoundedCache(MAP_CACHE_MAX_ENTRIES)
         self.map_processing_time = 0
         self.last_map = None
 
@@ -264,6 +296,29 @@ class RepoMap:
 
         return data
 
+    def _get_cached_lexer(self, fname, code):
+        ext = Path(fname).suffix.lower()
+        cached = LEXER_CACHE.get(ext)
+        if cached:
+            if hasattr(cached, "reset"):
+                cached.reset()
+            return cached
+
+        try:
+            lexer = guess_lexer_for_filename(fname, code)
+        except Exception as err:
+            if self.io:
+                self.io.tool_warning(f"Unable to lex {fname}: {err}")
+            return None
+
+        if hasattr(lexer, "reset"):
+            lexer.reset()
+
+        if ext:
+            LEXER_CACHE[ext] = lexer
+
+        return lexer
+
     def _run_captures(self, query: Query, node):
         # tree-sitter 0.23.2's python bindings had captures directly on the Query object
         # but 0.24.0 moved it to a separate QueryCursor class. Support both.
@@ -345,10 +400,8 @@ class RepoMap:
         # Some tags files only provide defs (cpp, for example)
         # Use pygments to backfill refs
 
-        try:
-            lexer = guess_lexer_for_filename(fname, code)
-        except Exception:  # On Windows, bad ref to time.clock which is deprecated?
-            # self.io.tool_error(f"Error lexing {fname}")
+        lexer = self._get_cached_lexer(fname, code)
+        if not lexer:
             return
 
         tokens = list(lexer.get_tokens(code))
@@ -672,7 +725,7 @@ class RepoMap:
 
         chat_rel_fnames = set(self.get_rel_fname(fname) for fname in chat_fnames)
 
-        self.tree_cache = dict()
+        self.tree_cache = BoundedCache(TREE_CACHE_MAX_ENTRIES)
 
         middle = min(int(max_map_tokens // 25), num_tags)
         while lower_bound <= upper_bound:
@@ -705,8 +758,6 @@ class RepoMap:
 
         spin.end()
         return best_tree
-
-    tree_cache = dict()
 
     def render_tree(self, abs_fname, rel_fname, lois):
         mtime = self.get_mtime(abs_fname)
@@ -804,6 +855,11 @@ def get_random_color():
 
 
 def get_scm_fname(lang):
+    if lang in SCM_PATH_CACHE:
+        return SCM_PATH_CACHE[lang]
+
+    result = None
+
     # Load the tags queries
     if USING_TSL_PACK:
         subdir = "tree-sitter-language-pack"
@@ -814,20 +870,24 @@ def get_scm_fname(lang):
                 f"{lang}-tags.scm",
             )
             if path.exists():
-                return path
+                result = path
         except KeyError:
             pass
 
-    # Fall back to tree-sitter-languages
-    subdir = "tree-sitter-languages"
-    try:
-        return resources.files(__package__).joinpath(
-            "queries",
-            subdir,
-            f"{lang}-tags.scm",
-        )
-    except KeyError:
-        return
+    if result is None:
+        # Fall back to tree-sitter-languages
+        subdir = "tree-sitter-languages"
+        try:
+            result = resources.files(__package__).joinpath(
+                "queries",
+                subdir,
+                f"{lang}-tags.scm",
+            )
+        except KeyError:
+            result = None
+
+    SCM_PATH_CACHE[lang] = result
+    return result
 
 
 def get_supported_languages_md():
