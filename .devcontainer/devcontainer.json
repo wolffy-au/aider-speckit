@@ -1,0 +1,29 @@
+{
+    "name": "Aider Dev Container",
+    "image": "mcr.microsoft.com/devcontainers/python:2-3.11-bookworm",
+    "build": {
+        "dockerfile": "../docker/Dockerfile",
+        "context": "..",
+        "target": "aider"
+    },
+    "workspaceFolder": "/app",
+    "remoteUser": "appuser",
+    "overrideCommand": true,
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/venv/bin/python",
+                "python.terminal.activateEnvironment": true
+            }
+        }
+    },
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/app,type=bind"
+    ],
+    "postCreateCommand": "git status",
+    "features": {}
+}

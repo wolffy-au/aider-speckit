@@ -9,7 +9,9 @@ import time
 from collections import Counter, defaultdict, namedtuple, OrderedDict
 from importlib import resources
 from pathlib import Path
+from typing import Any, Dict, NamedTuple, Optional, Tuple, Union, cast
 
+import tree_sitter as _tree_sitter
 from diskcache import Cache
 from grep_ast import TreeContext, filename_to_lang
 from grep_ast.tsl import USING_TSL_PACK, get_language, get_parser
