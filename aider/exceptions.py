@@ -66,13 +66,23 @@ class LiteLLMExceptions:
             # Filter by BaseException because instances of non-exception classes cannot be caught.
             # `litellm.ErrorEventError` is an example of a regular class which just happens to end
             # with `Error`.
-            if var.endswith("Error") and issubclass(getattr(litellm, var), BaseException):
+            try:
+                attr = getattr(litellm, var)
+            except AttributeError:
+                continue
+            if var.endswith("Error") and isinstance(attr, type) and issubclass(attr, BaseException):
                 if var not in self.exception_info:
-                    raise ValueError(f"{var} is in litellm but not in aider's exceptions list")
+                    if strict:
+                        raise ValueError(f"{var} is in litellm but not in aider's exceptions list")
+                    continue
 
-        for var in self.exception_info:
-            ex = getattr(litellm, var)
-            self.exceptions[ex] = self.exception_info[var]
+        self.exceptions = {}
+        for var, info in self.exception_info.items():
+            try:
+                ex = getattr(litellm, var)
+            except AttributeError:
+                continue
+            self.exceptions[ex] = info
 
     def exceptions_tuple(self):
         return tuple(self.exceptions)

@@ -3,7 +3,6 @@ import re
 import subprocess
 import sys
 import traceback
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,9 +12,6 @@ from grep_ast.tsl import get_parser  # noqa: E402
 
 from aider.dump import dump  # noqa: F401
 from aider.run_cmd import run_cmd_subprocess  # noqa: F401
-
-# tree_sitter is throwing a FutureWarning
-warnings.simplefilter("ignore", category=FutureWarning)
 
 
 class Linter:

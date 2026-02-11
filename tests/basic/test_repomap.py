@@ -50,16 +50,20 @@ class TestRepoMap(unittest.TestCase):
         with GitTemporaryDirectory() as temp_dir:
             repo = git.Repo(temp_dir)
 
+            file1_path = os.path.join(temp_dir, "file1.py")
+            file2_path = os.path.join(temp_dir, "file2.py")
+            file3_path = os.path.join(temp_dir, "file3.py")
+
             # Create three source files with one function each
             file1_content = "def function1():\n    return 'Hello from file1'\n"
             file2_content = "def function2():\n    return 'Hello from file2'\n"
             file3_content = "def function3():\n    return 'Hello from file3'\n"
 
-            with open(os.path.join(temp_dir, "file1.py"), "w") as f:
+            with open(file1_path, "w") as f:
                 f.write(file1_content)
-            with open(os.path.join(temp_dir, "file2.py"), "w") as f:
+            with open(file2_path, "w") as f:
                 f.write(file2_content)
-            with open(os.path.join(temp_dir, "file3.py"), "w") as f:
+            with open(file3_path, "w") as f:
                 f.write(file3_content)
 
             # Add files to git
@@ -69,11 +73,7 @@ class TestRepoMap(unittest.TestCase):
             # Initialize RepoMap with refresh="files"
             io = InputOutput()
             repo_map = RepoMap(main_model=self.GPT35, root=temp_dir, io=io, refresh="files")
-            other_files = [
-                os.path.join(temp_dir, "file1.py"),
-                os.path.join(temp_dir, "file2.py"),
-                os.path.join(temp_dir, "file3.py"),
-            ]
+            other_files = [file1_path, file2_path, file3_path]
 
             # Get initial repo map
             initial_map = repo_map.get_repo_map([], other_files)
@@ -83,8 +83,12 @@ class TestRepoMap(unittest.TestCase):
             self.assertIn("function3", initial_map)
 
             # Add a new function to file1.py
-            with open(os.path.join(temp_dir, "file1.py"), "a") as f:
+            with open(file1_path, "a") as f:
                 f.write("\ndef functionNEW():\n    return 'Hello NEW'\n")
+
+            # Ensure the file's mtime is updated to trigger the refresh
+            new_mtime = time.time() + 1
+            os.utime(file1_path, (new_mtime, new_mtime))
 
             # Get another repo map
             second_map = repo_map.get_repo_map([], other_files)
@@ -92,10 +96,7 @@ class TestRepoMap(unittest.TestCase):
                 initial_map, second_map, "RepoMap should not change with refresh='files'"
             )
 
-            other_files = [
-                os.path.join(temp_dir, "file1.py"),
-                os.path.join(temp_dir, "file2.py"),
-            ]
+            other_files = [file1_path, file2_path]
             second_map = repo_map.get_repo_map([], other_files)
             self.assertIn("functionNEW", second_map)
 
