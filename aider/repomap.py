@@ -6,13 +6,13 @@ import shutil
 import sqlite3
 import sys
 import time
-import warnings
 from collections import Counter, defaultdict, namedtuple
 from importlib import resources
 from pathlib import Path
 
 from diskcache import Cache
 from grep_ast import TreeContext, filename_to_lang
+from grep_ast.tsl import USING_TSL_PACK, get_language, get_parser
 from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from tqdm import tqdm
@@ -21,10 +21,6 @@ from tree_sitter import Query
 from aider.dump import dump
 from aider.special import filter_important_files
 from aider.waiting import Spinner
-
-# tree_sitter is throwing a FutureWarning
-warnings.simplefilter("ignore", category=FutureWarning)
-from grep_ast.tsl import USING_TSL_PACK, get_language, get_parser  # noqa: E402
 
 Tag = namedtuple("Tag", "rel_fname fname line name kind".split())
 
@@ -222,7 +218,12 @@ class RepoMap:
             self.tags_cache_error(e)
 
     def save_tags_cache(self):
-        pass
+        cache = getattr(self, "TAGS_CACHE", None)
+        if isinstance(cache, Cache):
+            try:
+                cache.cull()
+            except SQLITE_ERRORS as e:
+                self.tags_cache_error(e)
 
     def get_mtime(self, fname):
         try:

@@ -16,7 +16,7 @@ class ContextCoder(Coder):
 
         self.repo_map.refresh = "always"
         self.repo_map.max_map_tokens *= self.repo_map.map_mul_no_files
-        self.repo_map.map_mul_no_files = 1.0
+        self.repo_map.map_mul_no_files = 1
 
     def reply_completed(self):
         content = self.partial_response_content
