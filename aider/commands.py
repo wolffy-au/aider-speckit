@@ -1559,23 +1559,44 @@ class Commands:
             return
 
         arguments = args.strip()
-        populated = template.replace("$ARGUMENTS", arguments)
+        prompt = template.replace("$ARGUMENTS", arguments)
+
+        from aider.coders.base_coder import Coder
+
+        coder = Coder.create(
+            io=self.io,
+            from_coder=self.coder,
+            edit_format=self.coder.main_model.edit_format,
+            summarize_from_coder=False,
+        )
+        coder.run(prompt)
+
+        all_messages = coder.done_messages + coder.cur_messages
+        assistant_msg = next(
+            (msg for msg in reversed(all_messages) if msg["role"] == "assistant"),
+            None,
+        )
+        if not assistant_msg:
+            self.io.tool_error("Unable to generate constitution from template.")
+            return
+
+        response = assistant_msg["content"]
 
         memory_dir = self.coder.abs_root_path(".specify/memory")
         os.makedirs(memory_dir, exist_ok=True)
 
         constitution_path = self.coder.abs_root_path(".specify/memory/constitution.md")
-        self.io.write_text(constitution_path, populated)
+        self.io.write_text(constitution_path, response)
 
         if constitution_path not in self.coder.abs_fnames:
             self.coder.abs_fnames.add(constitution_path)
         self.coder.check_added_files()
 
-        self.io.tool_output("Updated .specify/memory/constitution.md (template applied).")
+        self.io.tool_output("Updated .specify/memory/constitution.md with the assistant response.")
 
         self.coder.cur_messages += [
-            dict(role="user", content=populated),
-            dict(role="assistant", content="Ok."),
+            dict(role="user", content=prompt),
+            dict(role="assistant", content=response),
         ]
 
     def cmd_report(self, args):
