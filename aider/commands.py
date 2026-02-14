@@ -1569,18 +1569,11 @@ class Commands:
             edit_format=self.coder.main_model.edit_format,
             summarize_from_coder=False,
         )
-        coder.run(prompt)
+        response = coder.run(prompt)
 
-        all_messages = coder.done_messages + coder.cur_messages
-        assistant_msg = next(
-            (msg for msg in reversed(all_messages) if msg["role"] == "assistant"),
-            None,
-        )
-        if not assistant_msg:
+        if not response:
             self.io.tool_error("Unable to generate constitution from template.")
             return
-
-        response = assistant_msg["content"]
 
         memory_dir = self.coder.abs_root_path(".specify/memory")
         os.makedirs(memory_dir, exist_ok=True)
