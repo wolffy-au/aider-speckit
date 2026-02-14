@@ -159,7 +159,7 @@ class AutoCompleter(Completer):
         cmd = words[0]
         partial = words[-1].lower()
 
-        matches, _, _ = self.commands.matching_commands(cmd)
+        matches, _, _, _ = self.commands.matching_commands(cmd)
         if len(matches) == 1:
             cmd = matches[0]
         elif cmd not in matches:
