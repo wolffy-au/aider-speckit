@@ -1561,6 +1561,16 @@ class Commands:
         arguments = args.strip()
         prompt = template.replace("$ARGUMENTS", arguments)
 
+        # Read existing constitution content if it exists
+        constitution_path = self.coder.abs_root_path(".specify/memory/constitution.md")
+        if os.path.exists(constitution_path):
+            try:
+                with open(constitution_path, "r", encoding=self.io.encoding) as f:
+                    existing_content = f.read()
+                prompt += f"\n\nExisting constitution content:\n\n{existing_content}"
+            except Exception as err:
+                self.io.tool_error(f"Unable to read existing constitution: {err}")
+
         from aider.coders.base_coder import Coder
 
         coder = Coder.create(
