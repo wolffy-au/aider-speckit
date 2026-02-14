@@ -303,11 +303,14 @@ class Commands:
             return
 
         first_word = words[0]
+        normalized_first_word = first_word.replace(".", "-")
         rest_inp = inp[len(words[0]) :].strip()
 
         all_commands = self.get_commands()
-        matching_commands = [cmd for cmd in all_commands if cmd.startswith(first_word)]
-        return matching_commands, first_word, rest_inp
+        matching_commands = [
+            cmd for cmd in all_commands if cmd.startswith(normalized_first_word)
+        ]
+        return matching_commands, first_word, normalized_first_word, rest_inp
 
     def run(self, inp):
         if inp.startswith("!"):
