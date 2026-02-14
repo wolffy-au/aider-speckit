@@ -320,13 +320,13 @@ class Commands:
         res = self.matching_commands(inp)
         if res is None:
             return
-        matching_commands, first_word, rest_inp = res
+        matching_commands, first_word, normalized_first_word, rest_inp = res
         if len(matching_commands) == 1:
             command = matching_commands[0][1:]
             self.coder.event(f"command_{command}")
             return self.do_run(command, rest_inp)
-        elif first_word in matching_commands:
-            command = first_word[1:]
+        elif normalized_first_word in matching_commands:
+            command = normalized_first_word[1:]
             self.coder.event(f"command_{command}")
             return self.do_run(command, rest_inp)
         elif len(matching_commands) > 1:
@@ -1540,6 +1540,43 @@ class Commands:
             )
         except Exception as e:
             self.io.tool_error(f"An unexpected error occurred while copying to clipboard: {str(e)}")
+
+    def cmd_speckit_constitution(self, args):
+        "Populate the speckit constitution template into .specify/memory."
+
+        template_rel = ".aider/commands/speckit.constitution.md"
+        template_path = self.coder.abs_root_path(template_rel)
+
+        if not os.path.exists(template_path):
+            self.io.tool_error("Template .aider/commands/speckit.constitution.md not found.")
+            return
+
+        try:
+            with open(template_path, "r", encoding=self.io.encoding) as f:
+                template = f.read()
+        except Exception as err:
+            self.io.tool_error(f"Unable to read {template_rel}: {err}")
+            return
+
+        arguments = args.strip()
+        populated = template.replace("$ARGUMENTS", arguments)
+
+        memory_dir = self.coder.abs_root_path(".specify/memory")
+        os.makedirs(memory_dir, exist_ok=True)
+
+        constitution_path = self.coder.abs_root_path(".specify/memory/constitution.md")
+        self.io.write_text(constitution_path, populated)
+
+        if constitution_path not in self.coder.abs_fnames:
+            self.coder.abs_fnames.add(constitution_path)
+        self.coder.check_added_files()
+
+        self.io.tool_output("Updated .specify/memory/constitution.md (template applied).")
+
+        self.coder.cur_messages += [
+            dict(role="user", content=populated),
+            dict(role="assistant", content="Ok."),
+        ]
 
     def cmd_report(self, args):
         "Report a problem by opening a GitHub Issue"
