@@ -1,7 +1,59 @@
 import json
 import os
+import re
 import subprocess
 from datetime import datetime
+
+SHORT_NAME_STOP_WORDS = {
+    "i",
+    "a",
+    "an",
+    "the",
+    "to",
+    "for",
+    "of",
+    "in",
+    "on",
+    "at",
+    "by",
+    "with",
+    "from",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "should",
+    "could",
+    "can",
+    "may",
+    "might",
+    "must",
+    "shall",
+    "this",
+    "that",
+    "these",
+    "those",
+    "my",
+    "your",
+    "our",
+    "their",
+    "want",
+    "need",
+    "add",
+    "get",
+    "set",
+}
 
 
 class SpeckitCommandsMixin:
@@ -75,19 +127,20 @@ class SpeckitCommandsMixin:
             self.io.tool_error("Template .aider/commands/speckit.specify.md not found.")
             return
 
-        arguments = args.strip()
-        if not arguments:
+        description = args.strip()
+        if not description:
             self.io.tool_error("Please provide a feature description for /speckit.specify.")
             return
 
-        try:
-            with open(template_path, "r", encoding=self.io.encoding) as f:
-                template = f.read()
-        except Exception as err:
-            self.io.tool_error(f"Unable to read {template_rel}: {err}")
+        template = self.io.read_text(template_path)
+        if template is None:
+            self.io.tool_error(f"Unable to read {template_rel}.")
             return
 
-        prompt = template.replace("$ARGUMENTS", arguments)
+        prompt = template.replace("$ARGUMENTS", description)
+
+        short_name = self._generate_short_name(description)
+        feature_number = self._determine_next_feature_number(short_name)
 
         script_rel = ".specify/scripts/bash/create-new-feature.sh"
         script_path = self.coder.abs_root_path(script_rel)
@@ -95,40 +148,25 @@ class SpeckitCommandsMixin:
             self.io.tool_error("Script .specify/scripts/bash/create-new-feature.sh not found.")
             return
 
-        proc = subprocess.run(
-            ["bash", script_path, "--json", arguments],
-            cwd=self.coder.root,
-            capture_output=True,
-            text=True,
+        spec_info = self._run_feature_creation_script(
+            script_path,
+            description,
+            short_name,
+            feature_number,
         )
-
-        if proc.returncode != 0:
-            self.io.tool_error("Unable to create specification workspace.")
-            stderr = proc.stderr.strip()
-            stdout = proc.stdout.strip()
-            if stderr:
-                self.io.tool_output(stderr)
-            if stdout:
-                self.io.tool_output(stdout)
-            return
-
-        stderr = proc.stderr.strip()
-        if stderr:
-            self.io.tool_warning(stderr)
-
-        try:
-            spec_info = json.loads(proc.stdout.strip())
-        except json.JSONDecodeError:
-            self.io.tool_error("Unexpected output from the feature creation script.")
-            stdout = proc.stdout.strip()
-            if stdout:
-                self.io.tool_output(stdout)
+        if not spec_info:
             return
 
         spec_file = spec_info.get("SPEC_FILE")
+        branch_name = spec_info.get("BRANCH_NAME")
         if not spec_file:
             self.io.tool_error("Feature creation script did not return a spec file path.")
             return
+        if not branch_name:
+            self.io.tool_error("Feature creation script did not return a branch name.")
+            return
+
+        spec_file = os.path.abspath(spec_file)
 
         from aider.coders.base_coder import Coder
 
@@ -146,39 +184,206 @@ class SpeckitCommandsMixin:
         self.io.write_text(spec_file, spec_body)
         self.coder.abs_fnames.add(spec_file)
 
-        feature_name = spec_info.get("BRANCH_NAME", "")
-        spec_lines = [line for line in spec_body.splitlines() if line.strip()]
-        if spec_lines:
-            first_line = spec_lines[0].strip()
-            if first_line.startswith("# Feature Specification:"):
-                feature_name = first_line.replace("# Feature Specification:", "").strip()
-            elif first_line.startswith("#"):
-                feature_name = first_line.lstrip("#").strip()
-        if not feature_name:
-            branch_name = spec_info.get("BRANCH_NAME", "")
-            if "-" in branch_name:
-                feature_name = branch_name.split("-", 1)[1].replace("-", " ").strip()
-            else:
-                feature_name = branch_name
-        if not feature_name:
-            feature_name = "Specification"
+        feature_name = self._extract_feature_name(spec_body, branch_name)
+        checklist_path = self._write_spec_checklist(spec_file, feature_name)
+        self.coder.abs_fnames.add(checklist_path)
+        self.coder.check_added_files()
 
-        feature_dir = os.path.dirname(spec_file)
-        checklist_dir = os.path.join(feature_dir, "checklists")
+        root = self.coder.root or os.getcwd()
+        spec_rel = os.path.relpath(spec_file, root).replace(os.sep, "/")
+        checklist_rel = os.path.relpath(checklist_path, root).replace(os.sep, "/")
+
+        self.io.tool_output(f"Specification written to {spec_rel}")
+        self.io.tool_output(f"Checklist created at {checklist_rel}")
+        self.io.tool_output(f"Branch created: {branch_name} ({feature_name})")
+        self.io.tool_output("Specification ready for /speckit.clarify or /speckit.plan.")
+
+        self.coder.cur_messages += [
+            dict(role="user", content=prompt),
+            dict(role="assistant", content=spec_body),
+        ]
+
+    @staticmethod
+    def _generate_short_name(description):
+        tokens = re.findall(r"[A-Za-z0-9]+(?:'[A-Za-z0-9]+)?", description)
+        meaningful = []
+        for token in tokens:
+            normalized = token.lower().strip("'")
+            if not normalized or normalized in SHORT_NAME_STOP_WORDS:
+                continue
+            if len(normalized) >= 3:
+                meaningful.append(normalized)
+        if len(meaningful) < 2:
+            fallback = [
+                token.lower().strip("'")
+                for token in tokens
+                if token and token.lower().strip("'")
+            ]
+            meaningful = fallback
+        candidates = meaningful[:4]
+        if not candidates:
+            candidates = ["feature"]
+        return SpeckitCommandsMixin._clean_branch_suffix("-".join(candidates))
+
+    @staticmethod
+    def _clean_branch_suffix(name):
+        cleaned = re.sub(r"[^a-z0-9]+", "-", name.lower())
+        cleaned = re.sub(r"-{2,}", "-", cleaned).strip("-")
+        return cleaned or "feature"
+
+    def _determine_next_feature_number(self, short_name):
+        root = self.coder.root or os.getcwd()
+        numbers = set()
+        self._git_fetch_all(root)
+        branch_listing = self._run_git_command(["git", "branch", "-a"], root)
+        numbers.update(self._extract_branch_numbers(branch_listing, short_name))
+        remote_listing = self._run_git_command(
+            ["git", "ls-remote", "--heads", "origin"], root
+        )
+        numbers.update(self._extract_remote_numbers(remote_listing, short_name))
+        specs_dir = os.path.join(root, "specs")
+        numbers.update(self._extract_specs_numbers(specs_dir, short_name))
+        return max(numbers, default=0) + 1
+
+    def _git_fetch_all(self, root):
+        try:
+            subprocess.run(
+                ["git", "fetch", "--all", "--prune"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            self.io.tool_warning(
+                "Unable to refresh remote branch information; proceeding with existing data."
+            )
+
+    def _run_git_command(self, cmd, root):
+        try:
+            proc = subprocess.run(
+                cmd,
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return proc.stdout
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return ""
+
+    @staticmethod
+    def _extract_branch_numbers(listing, short_name):
+        numbers = set()
+        if not listing:
+            return numbers
+        pattern = re.compile(rf"^(\d+)-{re.escape(short_name)}$")
+        for line in listing.splitlines():
+            cleaned = re.sub(r"^[* ]+", "", line.strip())
+            cleaned = re.sub(r"^remotes/[^/]+/", "", cleaned)
+            if not cleaned:
+                continue
+            match = pattern.match(cleaned)
+            if match:
+                numbers.add(int(match.group(1)))
+        return numbers
+
+    @staticmethod
+    def _extract_remote_numbers(listing, short_name):
+        numbers = set()
+        if not listing:
+            return numbers
+        pattern = re.compile(rf"^(\d+)-{re.escape(short_name)}$")
+        for line in listing.splitlines():
+            parts = line.strip().split()
+            if len(parts) < 2:
+                continue
+            ref = parts[1]
+            branch = ref[len("refs/heads/") :] if ref.startswith("refs/heads/") else ref
+            match = pattern.match(branch)
+            if match:
+                numbers.add(int(match.group(1)))
+        return numbers
+
+    @staticmethod
+    def _extract_specs_numbers(specs_dir, short_name):
+        numbers = set()
+        if not os.path.isdir(specs_dir):
+            return numbers
+        pattern = re.compile(rf"^(\d+)-{re.escape(short_name)}$")
+        for entry in os.listdir(specs_dir):
+            path = os.path.join(specs_dir, entry)
+            if not os.path.isdir(path):
+                continue
+            match = pattern.match(entry)
+            if match:
+                numbers.add(int(match.group(1)))
+        return numbers
+
+    def _run_feature_creation_script(
+        self, script_path, description, short_name, number
+    ):
+        root = self.coder.root or os.getcwd()
+        try:
+            proc = subprocess.run(
+                [
+                    "bash",
+                    script_path,
+                    "--json",
+                    "--number",
+                    str(number),
+                    "--short-name",
+                    short_name,
+                    description,
+                ],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as err:
+            self.io.tool_error("Unable to create specification workspace.")
+            stderr = (err.stderr or "").strip()
+            stdout = (err.stdout or "").strip()
+            if stderr:
+                self.io.tool_output(stderr)
+            if stdout:
+                self.io.tool_output(stdout)
+            return None
+        except FileNotFoundError:
+            self.io.tool_error("Unable to run create-new-feature.sh; bash is not available.")
+            return None
+
+        stderr = proc.stderr.strip()
+        if stderr:
+            self.io.tool_warning(stderr)
+
+        stdout = proc.stdout.strip()
+        if not stdout:
+            self.io.tool_error("Feature creation script produced no JSON output.")
+            return None
+
+        try:
+            return json.loads(stdout)
+        except json.JSONDecodeError:
+            self.io.tool_error("Unexpected output from the feature creation script.")
+            if stdout:
+                self.io.tool_output(stdout)
+            return None
+
+    def _write_spec_checklist(self, spec_file, feature_name):
+        root = self.coder.root or os.getcwd()
+        spec_rel = os.path.relpath(spec_file, root).replace(os.sep, "/")
+        date_str = datetime.now().strftime("%B %d, %Y")
+        checklist_dir = os.path.join(os.path.dirname(spec_file), "checklists")
         os.makedirs(checklist_dir, exist_ok=True)
         checklist_path = os.path.join(checklist_dir, "requirements.md")
-
-        spec_rel = os.path.relpath(spec_file, self.coder.root)
-        spec_display = spec_rel.replace(os.sep, "/")
-        checklist_rel = os.path.relpath(checklist_path, self.coder.root)
-        checklist_display = checklist_rel.replace(os.sep, "/")
-        date_str = datetime.now().strftime("%Y-%m-%d")
-
         checklist_content = (
             f"# Specification Quality Checklist: {feature_name}\n\n"
-            f"**Purpose**: Validate specification completeness and quality before proceeding to planning\n"
+            "**Purpose**: Validate specification completeness and quality "
+            "before proceeding to planning\n"
             f"**Created**: {date_str}\n"
-            f"**Feature**: [spec.md]({spec_display})\n\n"
+            f"**Feature**: [spec.md]({spec_rel})\n\n"
             "## Content Quality\n\n"
             "- [ ] No implementation details (languages, frameworks, APIs)\n"
             "- [ ] Focused on user value and business needs\n"
@@ -199,18 +404,23 @@ class SpeckitCommandsMixin:
             "- [ ] Feature meets measurable outcomes defined in Success Criteria\n"
             "- [ ] No implementation details leak into specification\n\n"
             "## Notes\n\n"
-            "- Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`\n"
+            "- Items marked incomplete require spec updates before "
+            "`/speckit.clarify` or `/speckit.plan`\n"
         )
-
         self.io.write_text(checklist_path, checklist_content)
-        self.coder.abs_fnames.add(checklist_path)
+        return checklist_path
 
-        self.coder.check_added_files()
-
-        self.io.tool_output(f"Specification written to {spec_display}")
-        self.io.tool_output(f"Checklist created at {checklist_display}")
-
-        self.coder.cur_messages += [
-            dict(role="user", content=prompt),
-            dict(role="assistant", content=spec_body),
-        ]
+    @staticmethod
+    def _extract_feature_name(spec_body, fallback):
+        for line in spec_body.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("#"):
+                continue
+            header = stripped.lstrip("#").strip()
+            if not header:
+                continue
+            if header.lower().startswith("feature specification:"):
+                header = header.split(":", 1)[1].strip()
+            if header:
+                return header
+        return fallback
