@@ -126,6 +126,13 @@ class SpeckitCommandsMixin:
         template_rel = ".aider/commands/speckit.specify.md"
         template_path = self.coder.abs_root_path(template_rel)
 
+        read_only_targets = [
+            self.coder.abs_root_path(".specify/scripts/bash/create-new-feature.sh"),
+            self.coder.abs_root_path(".specify/templates/spec-template.md"),
+        ]
+        for target in read_only_targets:
+            self._add_read_only(target)
+
         if not os.path.exists(template_path):
             self.io.tool_error("Template .aider/commands/speckit.specify.md not found.")
             return
@@ -139,8 +146,6 @@ class SpeckitCommandsMixin:
         if template is None:
             self.io.tool_error(f"Unable to read {template_rel}.")
             return
-
-        prompt = template.replace("$ARGUMENTS", description)
 
         short_name = self._generate_short_name(description)
         feature_number = self._determine_next_feature_number(short_name)
@@ -170,6 +175,20 @@ class SpeckitCommandsMixin:
             return
 
         spec_file = os.path.abspath(spec_file)
+
+        date_str = datetime.now().strftime("%B %d, %Y")
+        headline = description.strip().rstrip(".")
+        if not headline:
+            headline = "Feature"
+
+        prompt = template.replace("$ARGUMENTS", description)
+        metadata_replacements = {
+            "[FEATURE NAME]": headline,
+            "[###-feature-name]": branch_name,
+            "[DATE]": date_str,
+        }
+        for token, value in metadata_replacements.items():
+            prompt = prompt.replace(token, value)
 
         from aider.coders.base_coder import Coder
 
@@ -416,6 +435,17 @@ class SpeckitCommandsMixin:
         )
         self.io.write_text(checklist_path, checklist_content)
         return checklist_path
+
+    def _add_read_only(self, path):
+        if not os.path.exists(path):
+            return
+
+        rel_name = self.coder.get_rel_fname(path)
+        if os.path.isdir(path):
+            self._add_read_only_directory(path, rel_name)
+            return
+
+        self._add_read_only_file(path, rel_name)
 
     @staticmethod
     def _sanitize_constitution_text(text):
