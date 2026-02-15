@@ -4,6 +4,10 @@ annotated-doc==0.0.4
     # via
     #   -c requirements/common-constraints.txt
     #   typer
+black==26.1.0
+    # via
+    #   -c requirements/common-constraints.txt
+    #   -r requirements/requirements-dev.in
 build==1.4.0
     # via
     #   -c requirements/common-constraints.txt
@@ -27,6 +31,7 @@ charset-normalizer==3.4.4
 click==8.3.1
     # via
     #   -c requirements/common-constraints.txt
+    #   black
     #   pip-tools
     #   typer
 codespell==2.4.1
@@ -129,6 +134,10 @@ iniconfig==2.3.0
     # via
     #   -c requirements/common-constraints.txt
     #   pytest
+isort==7.0.0
+    # via
+    #   -c requirements/common-constraints.txt
+    #   -r requirements/requirements-dev.in
 kiwisolver==1.4.9
     # via
     #   -c requirements/common-constraints.txt
@@ -149,6 +158,10 @@ mdurl==0.1.2
     # via
     #   -c requirements/common-constraints.txt
     #   markdown-it-py
+mypy-extensions==1.1.0
+    # via
+    #   -c requirements/common-constraints.txt
+    #   black
 nodeenv==1.10.0
     # via
     #   -c requirements/common-constraints.txt
@@ -162,6 +175,7 @@ numpy==1.26.4
 packaging==26.0
     # via
     #   -c requirements/common-constraints.txt
+    #   black
     #   build
     #   google-cloud-bigquery
     #   matplotlib
@@ -171,6 +185,10 @@ pandas==2.3.3
     # via
     #   -c requirements/common-constraints.txt
     #   -r requirements/requirements-dev.in
+pathspec==1.0.4
+    # via
+    #   -c requirements/common-constraints.txt
+    #   black
 pillow==12.1.1
     # via
     #   -c requirements/common-constraints.txt
@@ -186,6 +204,7 @@ pip-tools==7.5.2
 platformdirs==4.5.1
     # via
     #   -c requirements/common-constraints.txt
+    #   black
     #   virtualenv
 pluggy==1.6.0
     # via
@@ -254,6 +273,10 @@ python-dateutil==2.9.0.post0
     #   google-cloud-bigquery
     #   matplotlib
     #   pandas
+pytokens==0.4.1
+    # via
+    #   -c requirements/common-constraints.txt
+    #   black
 pytz==2025.2
     # via
     #   -c requirements/common-constraints.txt
