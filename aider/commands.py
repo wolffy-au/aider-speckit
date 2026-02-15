@@ -1542,7 +1542,6 @@ class Commands(SpeckitCommandsMixin):
         except Exception as e:
             self.io.tool_error(f"An unexpected error occurred while copying to clipboard: {str(e)}")
 
-
     def cmd_report(self, args):
         "Report a problem by opening a GitHub Issue"
         from aider.report import report_github_issue

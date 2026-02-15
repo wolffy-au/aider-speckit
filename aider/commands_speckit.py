@@ -181,6 +181,15 @@ class SpeckitCommandsMixin:
             self.io.tool_error("Unable to generate the specification content.")
             return
 
+        if not spec_body.strip().startswith("# Feature Specification:"):
+            self.io.tool_error(
+                "Specification generation failed: assistant response did not start with "
+                "'# Feature Specification:'."
+            )
+            self.io.tool_output("Assistant response:")
+            self.io.tool_output(spec_body)
+            return
+
         self.io.write_text(spec_file, spec_body)
         self.coder.abs_fnames.add(spec_file)
 

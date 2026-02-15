@@ -157,3 +157,76 @@ class TestSpeckitCommands(TestCase):
             self.assertTrue(
                 any(os.path.samefile(checklist_path, fname) for fname in coder.abs_fnames)
             )
+
+    def test_cmd_speckit_specify_rejects_malformed_response(self):
+        with GitTemporaryDirectory() as repo_dir:
+            os.chdir(repo_dir)
+            template_path = (
+                Path(repo_dir) / ".aider" / "commands" / "speckit.specify.md"
+            )
+            template_path.parent.mkdir(parents=True, exist_ok=True)
+            template_path.write_text("# Feature Specification: $ARGUMENTS\n\n## Scenarios\n")
+
+            script_path = (
+                Path(repo_dir)
+                / ".specify"
+                / "scripts"
+                / "bash"
+                / "create-new-feature.sh"
+            )
+            script_path.parent.mkdir(parents=True, exist_ok=True)
+            script_path.write_text("#!/usr/bin/env bash\n")
+
+            spec_dir = Path(repo_dir) / "specs" / "001-photo-organizer"
+            spec_dir.mkdir(parents=True, exist_ok=True)
+            spec_file = spec_dir / "spec.md"
+            initial_content = "Initial placeholder spec\n"
+            spec_file.write_text(initial_content)
+
+            commands, io, coder = self._make_commands(repo_dir)
+            malformed_response = (
+                "<bad>I'll create a feature specification for the photo album organization "
+                "application based on the user's description."
+            )
+
+            dummy_coder = mock.Mock()
+            dummy_coder.run.return_value = malformed_response
+
+            with mock.patch(
+                "aider.coders.base_coder.Coder.create", return_value=dummy_coder
+            ):
+                with mock.patch.object(
+                    SpeckitCommandsMixin, "_generate_short_name", return_value="photo-organizer"
+                ):
+                    with mock.patch.object(
+                        SpeckitCommandsMixin,
+                        "_determine_next_feature_number",
+                        return_value=1,
+                    ):
+                        with mock.patch.object(
+                            SpeckitCommandsMixin,
+                            "_run_feature_creation_script",
+                            return_value={
+                                "SPEC_FILE": str(spec_file),
+                                "BRANCH_NAME": "001-photo-organizer",
+                            },
+                        ):
+                            with mock.patch.object(
+                                io, "tool_error"
+                            ) as mock_tool_error:
+                                with mock.patch.object(
+                                    io, "tool_output"
+                                ) as mock_tool_output:
+                                    commands.cmd_speckit_specify("Create organizational spec")
+
+            mock_tool_error.assert_called_once_with(
+                "Specification generation failed: assistant response did not start "
+                "with '# Feature Specification:'."
+            )
+            mock_tool_output.assert_any_call("Assistant response:")
+            mock_tool_output.assert_any_call(malformed_response)
+
+            self.assertEqual(initial_content, spec_file.read_text())
+            self.assertFalse(
+                any(os.path.samefile(spec_file, fname) for fname in coder.abs_fnames)
+            )
