@@ -462,7 +462,11 @@ class TestRepoMapAllLanguages(unittest.TestCase):
         )
 
         # Get all files in the sample code base
-        other_files = [str(f) for f in sample_code_base.rglob("*") if f.is_file()]
+        other_files = [
+            str(f)
+            for f in sample_code_base.rglob("*")
+            if f.is_file() and ".mypy_cache" not in str(f)
+        ]
 
         # Generate the repo map
         generated_map_str = repo_map.get_repo_map([], other_files).strip()
