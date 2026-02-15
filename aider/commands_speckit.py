@@ -66,6 +66,10 @@ class SpeckitCommandsMixin:
 
         read_only_targets = [
             template_path,
+            self.coder.abs_root_path(".specify/memory/constitution.md"),
+            self.coder.abs_root_path(".specify/templates/plan-template.md"),
+            self.coder.abs_root_path(".specify/templates/spec-template.md"),
+            self.coder.abs_root_path(".specify/templates/tasks-template.md"),
         ]
         for target in read_only_targets:
             self._add_read_only(target)
@@ -210,6 +214,9 @@ class SpeckitCommandsMixin:
         if not spec_body:
             self.io.tool_error("Unable to generate the specification content.")
             return
+        spec_body_raw = spec_body
+        spec_body = self._sanitize_constitution_text(spec_body)
+        spec_body = f"{spec_body.rstrip()}\n"
 
         if not spec_body.strip().startswith("# Feature Specification:"):
             self.io.tool_error(
@@ -217,7 +224,7 @@ class SpeckitCommandsMixin:
                 "'# Feature Specification:'."
             )
             self.io.tool_output("Assistant response:")
-            self.io.tool_output(spec_body)
+            self.io.tool_output(spec_body_raw)
             return
 
         self.io.write_text(spec_file, spec_body)
@@ -466,6 +473,19 @@ class SpeckitCommandsMixin:
     def _add_read_only(self, path):
         if not os.path.exists(path):
             return
+
+        # Avoid duplicate additions if already marked read-only
+        try:
+            for existing in self.coder.abs_read_only_fnames:
+                if existing == path or existing == str(path):
+                    return
+                try:
+                    if os.path.samefile(existing, path):
+                        return
+                except OSError:
+                    continue
+        except Exception:
+            pass
 
         rel_name = self.coder.get_rel_fname(path)
         if os.path.isdir(path):
