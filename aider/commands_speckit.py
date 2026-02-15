@@ -64,6 +64,12 @@ class SpeckitCommandsMixin:
         template_rel = ".aider/commands/speckit.constitution.md"
         template_path = self.coder.abs_root_path(template_rel)
 
+        read_only_targets = [
+            template_path,
+        ]
+        for target in read_only_targets:
+            self._add_read_only(target)
+
         if not os.path.exists(template_path):
             self.io.tool_error("Template .aider/commands/speckit.constitution.md not found.")
             return
@@ -127,8 +133,10 @@ class SpeckitCommandsMixin:
         template_path = self.coder.abs_root_path(template_rel)
 
         read_only_targets = [
+            template_path,
             self.coder.abs_root_path(".specify/scripts/bash/create-new-feature.sh"),
             self.coder.abs_root_path(".specify/templates/spec-template.md"),
+            self.coder.abs_root_path(".specify/templates/checklist-template.md"),
         ]
         for target in read_only_targets:
             self._add_read_only(target)
@@ -404,35 +412,54 @@ class SpeckitCommandsMixin:
         checklist_dir = os.path.join(os.path.dirname(spec_file), "checklists")
         os.makedirs(checklist_dir, exist_ok=True)
         checklist_path = os.path.join(checklist_dir, "requirements.md")
-        checklist_content = (
-            f"# Specification Quality Checklist: {feature_name}\n\n"
-            "**Purpose**: Validate specification completeness and quality "
-            "before proceeding to planning\n"
-            f"**Created**: {date_str}\n"
-            f"**Feature**: [spec.md]({spec_rel})\n\n"
-            "## Content Quality\n\n"
-            "- [ ] No implementation details (languages, frameworks, APIs)\n"
-            "- [ ] Focused on user value and business needs\n"
-            "- [ ] Written for non-technical stakeholders\n"
-            "- [ ] All mandatory sections completed\n\n"
-            "## Requirement Completeness\n\n"
-            "- [ ] No [NEEDS CLARIFICATION] markers remain\n"
-            "- [ ] Requirements are testable and unambiguous\n"
-            "- [ ] Success criteria are measurable\n"
-            "- [ ] Success criteria are technology-agnostic (no implementation details)\n"
-            "- [ ] All acceptance scenarios are defined\n"
-            "- [ ] Edge cases are identified\n"
-            "- [ ] Scope is clearly bounded\n"
-            "- [ ] Dependencies and assumptions identified\n\n"
-            "## Feature Readiness\n\n"
-            "- [ ] All functional requirements have clear acceptance criteria\n"
-            "- [ ] User scenarios cover primary flows\n"
-            "- [ ] Feature meets measurable outcomes defined in Success Criteria\n"
-            "- [ ] No implementation details leak into specification\n\n"
-            "## Notes\n\n"
-            "- Items marked incomplete require spec updates before "
-            "`/speckit.clarify` or `/speckit.plan`\n"
-        )
+        template_path = self.coder.abs_root_path(".specify/templates/checklist-template.md")
+        template_content = self.io.read_text(template_path)
+        checklist_content = None
+
+        if template_content:
+            checklist_content = template_content
+            replacements = {
+                "[CHECKLIST TYPE]": "Specification Quality",
+                "[FEATURE NAME]": feature_name,
+                "[Brief description of what this checklist covers]": (
+                    "Validate specification completeness and quality before proceeding to planning"
+                ),
+                "[DATE]": date_str,
+                "[Link to spec.md or relevant documentation]": f"[spec.md]({spec_rel})",
+            }
+            for token, value in replacements.items():
+                checklist_content = checklist_content.replace(token, value)
+
+        if checklist_content is None:
+            checklist_content = (
+                f"# Specification Quality Checklist: {feature_name}\n\n"
+                "**Purpose**: Validate specification completeness and quality "
+                "before proceeding to planning\n"
+                f"**Created**: {date_str}\n"
+                f"**Feature**: [spec.md]({spec_rel})\n\n"
+                "## Content Quality\n\n"
+                "- [ ] No implementation details (languages, frameworks, APIs)\n"
+                "- [ ] Focused on user value and business needs\n"
+                "- [ ] Written for non-technical stakeholders\n"
+                "- [ ] All mandatory sections completed\n\n"
+                "## Requirement Completeness\n\n"
+                "- [ ] No [NEEDS CLARIFICATION] markers remain\n"
+                "- [ ] Requirements are testable and unambiguous\n"
+                "- [ ] Success criteria are measurable\n"
+                "- [ ] Success criteria are technology-agnostic (no implementation details)\n"
+                "- [ ] All acceptance scenarios are defined\n"
+                "- [ ] Edge cases are identified\n"
+                "- [ ] Scope is clearly bounded\n"
+                "- [ ] Dependencies and assumptions identified\n\n"
+                "## Feature Readiness\n\n"
+                "- [ ] All functional requirements have clear acceptance criteria\n"
+                "- [ ] User scenarios cover primary flows\n"
+                "- [ ] Feature meets measurable outcomes defined in Success Criteria\n"
+                "- [ ] No implementation details leak into specification\n\n"
+                "## Notes\n\n"
+                "- Items marked incomplete require spec updates before "
+                "`/speckit.clarify` or `/speckit.plan`\n"
+            )
         self.io.write_text(checklist_path, checklist_content)
         return checklist_path
 
