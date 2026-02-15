@@ -8,8 +8,8 @@ from prompt_toolkit.completion import CompleteEvent
 from prompt_toolkit.document import Document
 from rich.text import Text
 
-from aider.dump import dump  # noqa: F401
 from aider.commands import Commands
+from aider.dump import dump  # noqa: F401
 from aider.io import AutoCompleter, ConfirmGroup, InputOutput
 from aider.utils import ChdirTemporaryDirectory
 

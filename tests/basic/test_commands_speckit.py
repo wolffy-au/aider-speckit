@@ -28,9 +28,7 @@ class TestSpeckitCommands(TestCase):
         with GitTemporaryDirectory() as repo_dir:
             os.chdir(repo_dir)
             commands, io, _ = self._make_commands(repo_dir)
-            with mock.patch.object(
-                io, "tool_error"
-            ) as mock_tool_error:
+            with mock.patch.object(io, "tool_error") as mock_tool_error:
                 commands.cmd_speckit_constitution("Focus on testing")
             mock_tool_error.assert_called_once_with(
                 "Template .aider/commands/speckit.constitution.md not found."
@@ -66,19 +64,14 @@ class TestSpeckitCommands(TestCase):
             self.assertTrue(constitution_path.exists())
             self.assertEqual("Generated constitution", constitution_path.read_text())
             self.assertTrue(
-                any(
-                    os.path.samefile(constitution_path, fname)
-                    for fname in coder.abs_fnames
-                )
+                any(os.path.samefile(constitution_path, fname) for fname in coder.abs_fnames)
             )
 
     def test_cmd_speckit_specify_requires_template(self):
         with GitTemporaryDirectory() as repo_dir:
             os.chdir(repo_dir)
             commands, io, _ = self._make_commands(repo_dir)
-            with mock.patch.object(
-                io, "tool_error"
-            ) as mock_tool_error:
+            with mock.patch.object(io, "tool_error") as mock_tool_error:
                 commands.cmd_speckit_specify("Create photo albums")
             mock_tool_error.assert_called_once_with(
                 "Template .aider/commands/speckit.specify.md not found."
@@ -87,19 +80,11 @@ class TestSpeckitCommands(TestCase):
     def test_cmd_speckit_specify_generates_spec_and_checklist(self):
         with GitTemporaryDirectory() as repo_dir:
             os.chdir(repo_dir)
-            template_path = (
-                Path(repo_dir) / ".aider" / "commands" / "speckit.specify.md"
-            )
+            template_path = Path(repo_dir) / ".aider" / "commands" / "speckit.specify.md"
             template_path.parent.mkdir(parents=True, exist_ok=True)
             template_path.write_text("# Feature Specification: $ARGUMENTS\n\n## Scenarios\n")
 
-            script_path = (
-                Path(repo_dir)
-                / ".specify"
-                / "scripts"
-                / "bash"
-                / "create-new-feature.sh"
-            )
+            script_path = Path(repo_dir) / ".specify" / "scripts" / "bash" / "create-new-feature.sh"
             script_path.parent.mkdir(parents=True, exist_ok=True)
             script_path.write_text("#!/usr/bin/env bash\n")
 
@@ -151,9 +136,7 @@ class TestSpeckitCommands(TestCase):
             self.assertIn("# Specification Quality Checklist: Photo Organizer", checklist_contents)
             self.assertIn("spec.md", checklist_contents)
 
-            self.assertTrue(
-                any(os.path.samefile(spec_file, fname) for fname in coder.abs_fnames)
-            )
+            self.assertTrue(any(os.path.samefile(spec_file, fname) for fname in coder.abs_fnames))
             self.assertTrue(
                 any(os.path.samefile(checklist_path, fname) for fname in coder.abs_fnames)
             )
@@ -161,19 +144,11 @@ class TestSpeckitCommands(TestCase):
     def test_cmd_speckit_specify_rejects_malformed_response(self):
         with GitTemporaryDirectory() as repo_dir:
             os.chdir(repo_dir)
-            template_path = (
-                Path(repo_dir) / ".aider" / "commands" / "speckit.specify.md"
-            )
+            template_path = Path(repo_dir) / ".aider" / "commands" / "speckit.specify.md"
             template_path.parent.mkdir(parents=True, exist_ok=True)
             template_path.write_text("# Feature Specification: $ARGUMENTS\n\n## Scenarios\n")
 
-            script_path = (
-                Path(repo_dir)
-                / ".specify"
-                / "scripts"
-                / "bash"
-                / "create-new-feature.sh"
-            )
+            script_path = Path(repo_dir) / ".specify" / "scripts" / "bash" / "create-new-feature.sh"
             script_path.parent.mkdir(parents=True, exist_ok=True)
             script_path.write_text("#!/usr/bin/env bash\n")
 
@@ -192,9 +167,7 @@ class TestSpeckitCommands(TestCase):
             dummy_coder = mock.Mock()
             dummy_coder.run.return_value = malformed_response
 
-            with mock.patch(
-                "aider.coders.base_coder.Coder.create", return_value=dummy_coder
-            ):
+            with mock.patch("aider.coders.base_coder.Coder.create", return_value=dummy_coder):
                 with mock.patch.object(
                     SpeckitCommandsMixin, "_generate_short_name", return_value="photo-organizer"
                 ):
@@ -211,12 +184,8 @@ class TestSpeckitCommands(TestCase):
                                 "BRANCH_NAME": "001-photo-organizer",
                             },
                         ):
-                            with mock.patch.object(
-                                io, "tool_error"
-                            ) as mock_tool_error:
-                                with mock.patch.object(
-                                    io, "tool_output"
-                                ) as mock_tool_output:
+                            with mock.patch.object(io, "tool_error") as mock_tool_error:
+                                with mock.patch.object(io, "tool_output") as mock_tool_output:
                                     commands.cmd_speckit_specify("Create organizational spec")
 
             mock_tool_error.assert_called_once_with(
@@ -227,6 +196,4 @@ class TestSpeckitCommands(TestCase):
             mock_tool_output.assert_any_call(malformed_response)
 
             self.assertEqual(initial_content, spec_file.read_text())
-            self.assertFalse(
-                any(os.path.samefile(spec_file, fname) for fname in coder.abs_fnames)
-            )
+            self.assertFalse(any(os.path.samefile(spec_file, fname) for fname in coder.abs_fnames))

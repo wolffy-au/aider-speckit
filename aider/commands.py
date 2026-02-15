@@ -308,9 +308,7 @@ class Commands(SpeckitCommandsMixin):
         rest_inp = inp[len(words[0]) :].strip()
 
         all_commands = self.get_commands()
-        matching_commands = [
-            cmd for cmd in all_commands if cmd.startswith(normalized_first_word)
-        ]
+        matching_commands = [cmd for cmd in all_commands if cmd.startswith(normalized_first_word)]
         return matching_commands, first_word, normalized_first_word, rest_inp
 
     def run(self, inp):

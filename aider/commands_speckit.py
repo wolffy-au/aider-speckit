@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 from datetime import datetime
+from pathlib import Path
 
 SHORT_NAME_STOP_WORDS = {
     "i",
@@ -100,11 +101,13 @@ class SpeckitCommandsMixin:
             self.io.tool_error("Unable to generate constitution from template.")
             return
 
+        sanitized_response = self._sanitize_constitution_text(response)
+
         memory_dir = self.coder.abs_root_path(".specify/memory")
         os.makedirs(memory_dir, exist_ok=True)
 
         constitution_path = self.coder.abs_root_path(".specify/memory/constitution.md")
-        self.io.write_text(constitution_path, response)
+        self.io.write_text(constitution_path, sanitized_response)
 
         if constitution_path not in self.coder.abs_fnames:
             self.coder.abs_fnames.add(constitution_path)
@@ -114,7 +117,7 @@ class SpeckitCommandsMixin:
 
         self.coder.cur_messages += [
             dict(role="user", content=prompt),
-            dict(role="assistant", content=response),
+            dict(role="assistant", content=sanitized_response),
         ]
 
     def cmd_speckit_specify(self, args):
@@ -224,9 +227,7 @@ class SpeckitCommandsMixin:
                 meaningful.append(normalized)
         if len(meaningful) < 2:
             fallback = [
-                token.lower().strip("'")
-                for token in tokens
-                if token and token.lower().strip("'")
+                token.lower().strip("'") for token in tokens if token and token.lower().strip("'")
             ]
             meaningful = fallback
         candidates = meaningful[:4]
@@ -246,9 +247,7 @@ class SpeckitCommandsMixin:
         self._git_fetch_all(root)
         branch_listing = self._run_git_command(["git", "branch", "-a"], root)
         numbers.update(self._extract_branch_numbers(branch_listing, short_name))
-        remote_listing = self._run_git_command(
-            ["git", "ls-remote", "--heads", "origin"], root
-        )
+        remote_listing = self._run_git_command(["git", "ls-remote", "--heads", "origin"], root)
         numbers.update(self._extract_remote_numbers(remote_listing, short_name))
         specs_dir = os.path.join(root, "specs")
         numbers.update(self._extract_specs_numbers(specs_dir, short_name))
@@ -329,15 +328,14 @@ class SpeckitCommandsMixin:
                 numbers.add(int(match.group(1)))
         return numbers
 
-    def _run_feature_creation_script(
-        self, script_path, description, short_name, number
-    ):
+    def _run_feature_creation_script(self, script_path, description, short_name, number):
         root = self.coder.root or os.getcwd()
+        script_path_posix = Path(script_path).as_posix()
         try:
             proc = subprocess.run(
                 [
                     "bash",
-                    script_path,
+                    script_path_posix,
                     "--json",
                     "--number",
                     str(number),
@@ -418,6 +416,15 @@ class SpeckitCommandsMixin:
         )
         self.io.write_text(checklist_path, checklist_content)
         return checklist_path
+
+    @staticmethod
+    def _sanitize_constitution_text(text):
+        if text is None:
+            return text
+        match = re.search(r"(?m)^#{1,6}\s+.*", text)
+        sanitized = text[match.start() :].lstrip("\n") if match else text
+        sanitized = re.sub(r"\n*```+\s*$", "", sanitized)
+        return sanitized.rstrip()
 
     @staticmethod
     def _extract_feature_name(spec_body, fallback):
