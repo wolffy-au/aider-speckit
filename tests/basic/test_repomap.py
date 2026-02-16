@@ -4,7 +4,7 @@ import re
 import time
 import unittest
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 import git
 
@@ -17,7 +17,7 @@ from aider.utils import GitTemporaryDirectory, IgnorantTemporaryDirectory
 
 def require_repo_map_str(test_case: unittest.TestCase, result: Optional[str]) -> str:
     test_case.assertIsInstance(result, str)
-    return result
+    return cast(str, result)
 
 
 class TestRepoMap(unittest.TestCase):
