@@ -66,6 +66,7 @@ class TestDeprecated(TestCase):
                 self.assertIsNotNone(
                     deprecation_warning, f"No deprecation warning found for {flag}"
                 )
+                assert deprecation_warning is not None
                 warning_msg = deprecation_warning
 
                 self.assertIn("deprecated", warning_msg)
@@ -93,6 +94,7 @@ class TestDeprecated(TestCase):
                 self.assertIsNotNone(
                     deprecation_warning, "No deprecation warning with model alias found"
                 )
+                assert deprecation_warning is not None
                 warning_msg = deprecation_warning
                 self.assertIn("--model gpt4", warning_msg)
                 self.assertNotIn("--model gpt-4-0613", warning_msg)
