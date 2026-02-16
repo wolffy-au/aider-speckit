@@ -546,10 +546,12 @@ class PatchCoder(Coder):
         action = PatchAction(type=ActionType.ADD, path="", new_content="\n".join(added_lines))
         return action, index
 
-    def apply_edits(self, edits):
+    def apply_edits(self, edits, dry_run: bool = False):
         """
         Applies the parsed PatchActions to the corresponding files.
         """
+        if dry_run:
+            return
         if not edits:
             return
 
