@@ -18,7 +18,7 @@ class EditBlockCoder(Coder):
     edit_format = "diff"
     gpt_prompts = EditBlockPrompts()
 
-    def get_edits(self):
+    def get_edits(self, mode=None):
         content = self.partial_response_content
 
         # might raise ValueError for malformed ORIG/UPD blocks
@@ -34,9 +34,6 @@ class EditBlockCoder(Coder):
         edits = [edit for edit in edits if edit[0] is not None]
 
         return edits
-
-    def apply_edits_dry_run(self, edits):
-        return self.apply_edits(edits, dry_run=True)
 
     def apply_edits(self, edits, dry_run=False):
         failed = []
@@ -77,7 +74,7 @@ class EditBlockCoder(Coder):
             return updated_edits
 
         if not failed:
-            return
+            return None
 
         blocks = "block" if len(failed) == 1 else "blocks"
 
@@ -387,7 +384,7 @@ HEAD = r"^<{5,9} SEARCH>?\s*$"
 DIVIDER = r"^={5,9}\s*$"
 UPDATED = r"^>{5,9} REPLACE\s*$"
 
-HEAD_ERR = "<<<<<<< SEARCH"
+HEAD_ERR = "<<<<<< SEARCH"
 DIVIDER_ERR = "======="
 UPDATED_ERR = ">>>>>>> REPLACE"
 
@@ -605,6 +602,7 @@ def find_similar_lines(search_lines, content_lines, threshold=0.6):
 
     best_ratio = 0
     best_match = None
+    best_match_i = 0
 
     for i in range(len(content_lines) - len(search_lines) + 1):
         chunk = content_lines[i : i + len(search_lines)]
@@ -617,7 +615,7 @@ def find_similar_lines(search_lines, content_lines, threshold=0.6):
     if best_ratio < threshold:
         return ""
 
-    if best_match[0] == search_lines[0] and best_match[-1] == search_lines[-1]:
+    if best_match and best_match[0] == search_lines[0] and best_match[-1] == search_lines[-1]:
         return "\n".join(best_match)
 
     N = 5
@@ -641,16 +639,17 @@ def main():
 
         for fname, before, after in edits:
             # Compute diff
-            diff = difflib.unified_diff(
-                before.splitlines(keepends=True),
-                after.splitlines(keepends=True),
-                fromfile="before",
-                tofile="after",
-            )
-            diff = "".join(diff)
-            dump(before)
-            dump(after)
-            dump(diff)
+            if before and after:
+                diff = difflib.unified_diff(
+                    before.splitlines(keepends=True),
+                    after.splitlines(keepends=True),
+                    fromfile="before",
+                    tofile="after",
+                )
+                diff = "".join(diff)
+                dump(before)
+                dump(after)
+                dump(diff)
 
 
 if __name__ == "__main__":
