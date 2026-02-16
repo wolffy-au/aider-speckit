@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
+from typing import Optional
 
 from prompt_toolkit.completion import Completer, Completion, ThreadedCompleter
 from prompt_toolkit.cursor_shapes import ModalCursorShapeConfig
@@ -80,7 +81,7 @@ class CommandCompletionException(Exception):
 
 @dataclass
 class ConfirmGroup:
-    preference: str = None
+    preference: Optional[str] = None
     show_group: bool = True
 
     def __init__(self, items=None):
