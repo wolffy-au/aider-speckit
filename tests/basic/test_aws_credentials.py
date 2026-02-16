@@ -29,8 +29,8 @@ class TestAWSCredentials:
                 model = Model("bedrock/anthropic.claude-v2")
 
                 # Check that the AWS keys were removed from missing_keys
-                assert "AWS_ACCESS_KEY_ID" not in model.missing_keys
-                assert "AWS_SECRET_ACCESS_KEY" not in model.missing_keys
+                assert "AWS_ACCESS_KEY_ID" not in (model.missing_keys or [])
+                assert "AWS_SECRET_ACCESS_KEY" not in (model.missing_keys or [])
                 # With no missing keys, validation should pass
                 assert model.keys_in_environment
 
@@ -61,8 +61,8 @@ class TestAWSCredentials:
                 model = Model("us.anthropic.claude-3-7-sonnet-20250219-v1:0")
 
                 # Check that the AWS keys were removed from missing_keys
-                assert "AWS_ACCESS_KEY_ID" not in model.missing_keys
-                assert "AWS_SECRET_ACCESS_KEY" not in model.missing_keys
+                assert "AWS_ACCESS_KEY_ID" not in (model.missing_keys or [])
+                assert "AWS_SECRET_ACCESS_KEY" not in (model.missing_keys or [])
                 # With no missing keys, validation should pass
                 assert model.keys_in_environment
 
@@ -93,8 +93,8 @@ class TestAWSCredentials:
                 model = Model("gpt-4")
 
                 # For non-Bedrock models, AWS credential keys should remain in missing_keys
-                assert "AWS_ACCESS_KEY_ID" in model.missing_keys
-                assert "AWS_SECRET_ACCESS_KEY" in model.missing_keys
+                assert "AWS_ACCESS_KEY_ID" in (model.missing_keys or [])
+                assert "AWS_SECRET_ACCESS_KEY" in (model.missing_keys or [])
                 # With missing keys, validation should fail
                 assert not model.keys_in_environment
 
@@ -124,8 +124,8 @@ class TestAWSCredentials:
                 model = Model("bedrock/anthropic.claude-v2")
 
                 # Without AWS_PROFILE, AWS credential keys should remain in missing_keys
-                assert "AWS_ACCESS_KEY_ID" in model.missing_keys
-                assert "AWS_SECRET_ACCESS_KEY" in model.missing_keys
+                assert "AWS_ACCESS_KEY_ID" in (model.missing_keys or [])
+                assert "AWS_SECRET_ACCESS_KEY" in (model.missing_keys or [])
                 # With missing keys, validation should fail
                 assert not model.keys_in_environment
 
@@ -156,10 +156,10 @@ class TestAWSCredentials:
                 model = Model("bedrock/anthropic.claude-v2")
 
                 # AWS credential keys should be removed from missing_keys
-                assert "AWS_ACCESS_KEY_ID" not in model.missing_keys
-                assert "AWS_SECRET_ACCESS_KEY" not in model.missing_keys
+                assert "AWS_ACCESS_KEY_ID" not in (model.missing_keys or [])
+                assert "AWS_SECRET_ACCESS_KEY" not in (model.missing_keys or [])
                 # But other keys should remain
-                assert "ANOTHER_KEY" in model.missing_keys
+                assert "ANOTHER_KEY" in (model.missing_keys or [])
                 # With other missing keys, validation should still fail
                 assert not model.keys_in_environment
 
