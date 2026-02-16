@@ -1,4 +1,5 @@
 import json
+from typing import Any, Dict, cast
 
 from ..dump import dump  # noqa: F401
 from .base_coder import Coder
@@ -74,12 +75,14 @@ class EditBlockFunctionCoder(Coder):
                 description="New content to replace the `original_lines` with",
             )
 
-            self.functions[0]["parameters"]["properties"]["edits"]["items"]["properties"][
-                "original_lines"
-            ] = original_lines
-            self.functions[0]["parameters"]["properties"]["edits"]["items"]["properties"][
-                "updated_lines"
-            ] = updated_lines
+            function_schema = cast(Dict[str, Any], self.functions[0])
+            parameters = cast(Dict[str, Any], function_schema["parameters"])
+            properties = cast(Dict[str, Any], parameters["properties"])
+            edits = cast(Dict[str, Any], properties["edits"])
+            edits_items = cast(Dict[str, Any], edits["items"])
+            edits_properties = cast(Dict[str, Any], edits_items["properties"])
+            edits_properties["original_lines"] = original_lines
+            edits_properties["updated_lines"] = updated_lines
 
         self.gpt_prompts = EditBlockFunctionPrompts()
         super().__init__(*args, **kwargs)
