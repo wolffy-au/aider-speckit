@@ -196,7 +196,7 @@ def map_patches(texts, patches, debug):
     dmp = diff_match_patch()
     dmp.Diff_Timeout = 5
 
-    diff_s_o = dmp.diff_main(search_text, original_text)
+    diff_s_o = dmp.diff_main(search_text, original_text, False)
     # diff_r_s = dmp.diff_main(replace_text, search_text)
 
     # dmp.diff_cleanupSemantic(diff_s_o)
@@ -278,7 +278,7 @@ def dmp_apply(texts, remap=True):
         dmp.Match_MaxBits = 32
         dmp.Patch_Margin = 8
 
-    diff = dmp.diff_main(search_text, replace_text, None)
+    diff = dmp.diff_main(search_text, replace_text, False)
     dmp.diff_cleanupSemantic(diff)
     dmp.diff_cleanupEfficiency(diff)
 
@@ -369,7 +369,7 @@ def dmp_lines_apply(texts):
     assert len(replace_lines) == replace_num
     assert len(original_lines) == original_num
 
-    diff_lines = dmp.diff_main(search_lines, replace_lines, None)
+    diff_lines = dmp.diff_main(search_lines, replace_lines, False)
     dmp.diff_cleanupSemantic(diff_lines)
     dmp.diff_cleanupEfficiency(diff_lines)
 
@@ -409,7 +409,7 @@ def diff_lines(search_text, replace_text):
     # dmp.Diff_EditCost = 16
     search_lines, replace_lines, mapping = dmp.diff_linesToChars(search_text, replace_text)
 
-    diff_lines = dmp.diff_main(search_lines, replace_lines, None)
+    diff_lines = dmp.diff_main(search_lines, replace_lines, False)
     dmp.diff_cleanupSemantic(diff_lines)
     dmp.diff_cleanupEfficiency(diff_lines)
 
@@ -474,7 +474,7 @@ def git_cherry_pick_osr_onto_o(texts):
         # cherry pick R onto original
         try:
             repo.git.cherry_pick(replace_hash, "--minimal")
-        except (git.exc.ODBError, git.exc.GitError):
+        except (git.exc.GitError, git.exc.GitCommandError):
             # merge conflicts!
             return
 
@@ -512,7 +512,7 @@ def git_cherry_pick_sr_onto_so(texts):
         # cherry pick replace onto original
         try:
             repo.git.cherry_pick(replace_hash, "--minimal")
-        except (git.exc.ODBError, git.exc.GitError):
+        except (git.exc.GitError, git.exc.GitCommandError):
             # merge conflicts!
             return
 
@@ -600,10 +600,8 @@ def try_strategy(texts, strategy, preproc):
         res = reverse_lines(res)
 
     if res and preproc_relative_indent:
-        try:
+        if ri is not None:
             res = ri.make_absolute(res)
-        except ValueError:
-            return
 
     return res
 
@@ -674,7 +672,7 @@ def proc(dname):
         if out_fname.exists():
             out_fname.unlink()
 
-        if res:
+        if res is not None:
             out_fname.write_text(res)
 
             correct = (dname / "correct").read_text()
