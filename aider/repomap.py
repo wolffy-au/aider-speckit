@@ -6,7 +6,7 @@ import shutil
 import sqlite3
 import sys
 import time
-from collections import Counter, defaultdict, namedtuple, OrderedDict
+from collections import Counter, OrderedDict, defaultdict, namedtuple
 from importlib import resources
 from pathlib import Path
 
