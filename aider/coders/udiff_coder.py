@@ -49,7 +49,7 @@ class UnifiedDiffCoder(Coder):
     edit_format = "udiff"
     gpt_prompts = UnifiedDiffPrompts()
 
-    def get_edits(self):
+    def get_edits(self, mode=None):
         content = self.partial_response_content
 
         # might raise ValueError for malformed ORIG/UPD blocks
@@ -241,13 +241,21 @@ def make_new_lines_explicit(content, hunk):
 
 
 def cleanup_pure_whitespace_lines(lines):
+    # Convert lines to string if needed
+    if isinstance(lines, list):
+        lines = "".join(lines)
     res = [
-        line if line.strip() else line[-(len(line) - len(line.rstrip("\r\n")))] for line in lines
+        line if line.strip() else line[-(len(line) - len(line.rstrip("\r\n")))]
+        for line in lines.splitlines(keepends=True)
     ]
     return res
 
 
 def normalize_hunk(hunk):
+    # Ensure hunk is a string if it's a list
+    if isinstance(hunk, list):
+        hunk = "".join(hunk)
+
     before, after = hunk_to_before_after(hunk, lines=True)
 
     before = cleanup_pure_whitespace_lines(before)
@@ -259,16 +267,22 @@ def normalize_hunk(hunk):
 
 
 def directly_apply_hunk(content, hunk):
+    # Ensure hunk is a string if it's a list
+    if isinstance(hunk, list):
+        hunk = "".join(hunk)
+
     before, after = hunk_to_before_after(hunk)
 
     if not before:
         return
 
     before_lines, _ = hunk_to_before_after(hunk, lines=True)
-    before_lines = "".join([line.strip() for line in before_lines])
+    if isinstance(before_lines, str):
+        before_lines = before_lines.splitlines()
+    before_lines = [line.strip() for line in before_lines]
 
     # Refuse to do a repeated search and replace on a tiny bit of non-whitespace context
-    if len(before_lines) < 10 and content.count(before) > 1:
+    if len("".join(before_lines)) < 10 and content.count(before) > 1:
         return
 
     try:
@@ -335,6 +349,8 @@ def find_diffs(content):
 
 
 def process_fenced_block(lines, start_line_num):
+    # Initialize line_num to avoid "possibly unbound" error
+    line_num = start_line_num
     for line_num in range(start_line_num, len(lines)):
         line = lines[line_num]
         if line.startswith("```"):
@@ -401,10 +417,14 @@ def process_fenced_block(lines, start_line_num):
 
 
 def hunk_to_before_after(hunk, lines=False):
+    # Ensure hunk is a string if it's a list
+    if isinstance(hunk, list):
+        hunk = "".join(hunk)
+
     before = []
     after = []
     op = " "
-    for line in hunk:
+    for line in hunk.splitlines(keepends=True):
         if len(line) < 2:
             op = " "
             line = line
