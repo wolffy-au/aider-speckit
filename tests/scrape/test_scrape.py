@@ -18,22 +18,24 @@ class TestScrape(unittest.TestCase):
             return None
 
         # Test with SSL verification
+        mock_print_error_verify = MagicMock()
         scraper_verify = Scraper(
-            print_error=MagicMock(), playwright_available=True, verify_ssl=True
+            print_error=mock_print_error_verify, playwright_available=True, verify_ssl=True
         )
         result_verify = scrape_with_retries(scraper_verify, "https://self-signed.badssl.com")
         self.assertIsNone(result_verify)
-        scraper_verify.print_error.assert_called()
+        mock_print_error_verify.assert_called()
 
         # Test without SSL verification
+        mock_print_error_no_verify = MagicMock()
         scraper_no_verify = Scraper(
-            print_error=MagicMock(), playwright_available=True, verify_ssl=False
+            print_error=mock_print_error_no_verify, playwright_available=True, verify_ssl=False
         )
         result_no_verify = scrape_with_retries(scraper_no_verify, "https://self-signed.badssl.com")
         self.assertIsNotNone(result_no_verify)
         if result_no_verify:  # Check that result is not None
             self.assertIn("self-signed", result_no_verify)
-        scraper_no_verify.print_error.assert_not_called()
+        mock_print_error_no_verify.assert_not_called()
 
     def setUp(self):
         self.io = InputOutput(yes=True)
