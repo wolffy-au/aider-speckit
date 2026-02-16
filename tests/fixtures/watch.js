@@ -1,3 +1,4 @@
+ // Provided fixtures: watch.js, watch.lisp, watch_question.js
 // Regular AI comment
 //ai do 1 something
 //AI make 2 this better
