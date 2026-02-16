@@ -196,16 +196,19 @@ class TestModels(unittest.TestCase):
 
         # Test with integer
         model.set_thinking_tokens(8096)
-        self.assertEqual(model.extra_params["thinking"]["budget_tokens"], 8096)
+        extra_params = model.extra_params or {}
+        self.assertEqual(extra_params["thinking"]["budget_tokens"], 8096)
         self.assertFalse(model.use_temperature)
 
         # Test with string
         model.set_thinking_tokens("10k")
-        self.assertEqual(model.extra_params["thinking"]["budget_tokens"], 10 * 1024)
+        extra_params = model.extra_params or {}
+        self.assertEqual(extra_params["thinking"]["budget_tokens"], 10 * 1024)
 
         # Test with decimal value
         model.set_thinking_tokens("0.5M")
-        self.assertEqual(model.extra_params["thinking"]["budget_tokens"], 0.5 * 1024 * 1024)
+        extra_params = model.extra_params or {}
+        self.assertEqual(extra_params["thinking"]["budget_tokens"], 0.5 * 1024 * 1024)
 
     @patch("aider.models.check_pip_install_extra")
     def test_check_for_dependencies_bedrock(self, mock_check_pip):
