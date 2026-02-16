@@ -268,7 +268,9 @@ print(my_function(3, 4))
             io = InputOutput()
             repo_map = RepoMap(main_model=self.GPT35, root=temp_dir, io=io)
             test_files = [os.path.join(temp_dir, file) for file in test_files]
-            result = repo_map.get_repo_map(test_files[:2], test_files[2:])
+            result = require_repo_map_str(
+                self, repo_map.get_repo_map(test_files[:2], test_files[2:])
+            )
 
             dump(result)
 
