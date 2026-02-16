@@ -48,6 +48,7 @@ def test_scraper_enable_playwright(monkeypatch):
 
     scraper.scrape_with_playwright = fake_playwright
     content = scraper.scrape("http://example.com")
+    assert content is not None
     assert content.startswith("hi") or "<html>" in content
     assert called["called"]
 
