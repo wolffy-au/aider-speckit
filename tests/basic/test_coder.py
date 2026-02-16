@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import git
+from git.exc import GitCommandError
 
 from aider.coders import Coder
 from aider.coders.base_coder import FinishReasonLength, UnknownEditFormat
@@ -580,7 +581,7 @@ Once I have these, I can show you precisely how to do the thing.
             self.assertTrue(fname.exists())
 
             # make sure it was not committed
-            with self.assertRaises(git.exc.GitCommandError):
+            with self.assertRaises(GitCommandError):
                 list(repo.iter_commits(repo.active_branch.name))
 
             def mock_send(*args, **kwargs):
