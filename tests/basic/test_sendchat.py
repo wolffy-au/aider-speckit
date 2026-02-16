@@ -1,9 +1,12 @@
 import unittest
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 from aider.exceptions import LiteLLMExceptions
 from aider.llm import litellm
 from aider.models import Model
+
+litellm_module = cast(Any, litellm)
 
 
 class PrintCalled(Exception):
@@ -27,7 +30,7 @@ class TestSendChat(unittest.TestCase):
 
         # Set up the mock to raise
         mock_completion.side_effect = [
-            litellm.RateLimitError(
+            litellm_module.RateLimitError(
                 "rate limit exceeded",
                 response=mock,
                 llm_provider="llm_provider",
@@ -84,7 +87,7 @@ class TestSendChat(unittest.TestCase):
         mock = MagicMock()
         mock.status_code = 400
 
-        mock_completion.side_effect = litellm.NotFoundError(
+        mock_completion.side_effect = litellm_module.NotFoundError(
             message="Invalid request", llm_provider="test_provider", model="test_model"
         )
 
