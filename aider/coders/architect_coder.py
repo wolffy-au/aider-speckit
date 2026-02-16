@@ -4,11 +4,14 @@ from .base_coder import Coder
 
 
 class ArchitectCoder(AskCoder):
+    """Coder for handling architectural changes and decisions."""
+
     edit_format = "architect"
     gpt_prompts = ArchitectPrompts()
     auto_accept_architect = False
 
     def reply_completed(self):
+        """Handle completion of a reply by creating an editor coder for file changes."""
         content = self.partial_response_content
 
         if not content or not content.strip():
@@ -29,12 +32,11 @@ class ArchitectCoder(AskCoder):
         kwargs["total_cost"] = self.total_cost
         kwargs["cache_prompts"] = False
         kwargs["num_cache_warming_pings"] = 0
-        kwargs["summarize_from_coder"] = False
 
         new_kwargs = dict(io=self.io, from_coder=self)
         new_kwargs.update(kwargs)
 
-        editor_coder = Coder.create(**new_kwargs)
+        editor_coder = Coder.create(summarize_from_coder=False, **new_kwargs)
         editor_coder.cur_messages = []
         editor_coder.done_messages = []
 
