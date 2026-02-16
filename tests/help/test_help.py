@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 from requests.exceptions import ConnectionError, ReadTimeout
 
-import aider
+from aider import coders
 from aider.coders import Coder
-from aider.commands import Commands
+from aider.commands import Commands, SwitchCoder
 from aider.help import Help, fname_to_url
 from aider.io import InputOutput
 from aider.models import Model
@@ -57,12 +57,12 @@ class TestHelp(unittest.TestCase):
         commands = Commands(io, coder)
 
         help_coder_run = MagicMock(return_value="")
-        aider.coders.HelpCoder.run = help_coder_run
+        coders.HelpCoder.run = help_coder_run
 
         def run_help_command():
             try:
                 commands.cmd_help("hi")
-            except aider.commands.SwitchCoder:
+            except SwitchCoder:
                 pass
             else:
                 # If no exception was raised, fail the test
