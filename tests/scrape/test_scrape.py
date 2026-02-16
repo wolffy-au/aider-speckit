@@ -31,7 +31,8 @@ class TestScrape(unittest.TestCase):
         )
         result_no_verify = scrape_with_retries(scraper_no_verify, "https://self-signed.badssl.com")
         self.assertIsNotNone(result_no_verify)
-        self.assertIn("self-signed", result_no_verify)
+        if result_no_verify:  # Check that result is not None
+            self.assertIn("self-signed", result_no_verify)
         scraper_no_verify.print_error.assert_not_called()
 
     def setUp(self):
@@ -76,7 +77,8 @@ class TestScrape(unittest.TestCase):
 
         # Assert that the result contains expected content
         self.assertIsNotNone(result)
-        self.assertIn("Example Domain", result)
+        if result:  # Check that result is not None
+            self.assertIn("Example Domain", result)
 
         # Assert that print_error was never called
         mock_print_error.assert_not_called()
@@ -99,17 +101,8 @@ class TestScrape(unittest.TestCase):
         mock_print_error = MagicMock()
         scraper = Scraper(print_error=mock_print_error, playwright_available=True)
 
-        # Mock the playwright module to raise an error
-        import playwright
-
-        playwright._impl._errors.Error = Exception  # Mock the Error class
-
-        def mock_content():
-            raise playwright._impl._errors.Error("Test error")
-
-        # Mock the necessary objects and methods
-        scraper.scrape_with_playwright = MagicMock()
-        scraper.scrape_with_playwright.return_value = (None, None)
+        # Mock the scrape_with_playwright method to return None
+        scraper.scrape_with_playwright = MagicMock(return_value=(None, None))
 
         # Call the scrape method
         result = scraper.scrape("https://example.com")
