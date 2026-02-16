@@ -58,7 +58,7 @@ class EditBlockFunctionCoder(Coder):
     ]
 
     def __init__(self, code_format, *args, **kwargs):
-        raise RuntimeError("Deprecated, needs to be refactored to support get_edits/apply_edits")
+        # Initialize code_format as an instance attribute
         self.code_format = code_format
 
         if code_format == "string":
@@ -111,9 +111,9 @@ class EditBlockFunctionCoder(Coder):
             updated = get_arg(edit, "updated_lines")
 
             # gpt-3.5 returns lists even when instructed to return a string!
-            if self.code_format == "list" or type(original) is list:
+            if type(original) is list:
                 original = "\n".join(original)
-            if self.code_format == "list" or type(updated) is list:
+            if type(updated) is list:
                 updated = "\n".join(updated)
 
             if original and not original.endswith("\n"):
