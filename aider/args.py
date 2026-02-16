@@ -55,7 +55,7 @@ def get_parser(default_config_files, git_root):
     group = parser.add_argument_group("Main model")
     group.add_argument(
         "files", metavar="FILE", nargs="*", help="files to edit with an LLM (optional)"
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--model",
         metavar="MODEL",
@@ -122,13 +122,13 @@ def get_parser(default_config_files, git_root):
         metavar="MODEL_SETTINGS_FILE",
         default=".aider.model.settings.yml",
         help="Specify a file with aider model settings for unknown models",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--model-metadata-file",
         metavar="MODEL_METADATA_FILE",
         default=".aider.model.metadata.json",
         help="Specify a file with context window and costs for unknown models",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--alias",
         action="append",
@@ -279,13 +279,13 @@ def get_parser(default_config_files, git_root):
         metavar="INPUT_HISTORY_FILE",
         default=default_input_history_file,
         help=f"Specify the chat input history file (default: {default_input_history_file})",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--chat-history-file",
         metavar="CHAT_HISTORY_FILE",
         default=default_chat_history_file,
         help=f"Specify the chat history file (default: {default_chat_history_file})",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--restore-chat-history",
         action=argparse.BooleanOptionalAction,
@@ -297,7 +297,7 @@ def get_parser(default_config_files, git_root):
         metavar="LLM_HISTORY_FILE",
         default=None,
         help="Log the conversation with the LLM to this file (for example, .aider.llm.history)",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
 
     ##########
     group = parser.add_argument_group("Output settings")
@@ -429,7 +429,7 @@ def get_parser(default_config_files, git_root):
         type=lambda path_str: resolve_aiderignore_path(path_str, git_root),
         default=default_aiderignore_file,
         help="Specify the aider ignore file (default: .aiderignore in git root)",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--subtree-only",
         action="store_true",
@@ -575,7 +575,7 @@ def get_parser(default_config_files, git_root):
         "--analytics-log",
         metavar="ANALYTICS_LOG_FILE",
         help="Specify a file to log analytics events",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--analytics-disable",
         action="store_true",
@@ -652,7 +652,7 @@ def get_parser(default_config_files, git_root):
             "Specify a file containing the message to send the LLM, process reply, then exit"
             " (disables chat mode)"
         ),
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--gui",
         "--browser",
@@ -670,7 +670,7 @@ def get_parser(default_config_files, git_root):
         "--apply",
         metavar="FILE",
         help="Apply the changes from the given file instead of running the chat (debug)",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--apply-clipboard-edits",
         action="store_true",
@@ -731,13 +731,13 @@ def get_parser(default_config_files, git_root):
         action="append",
         metavar="FILE",
         help="specify a file to edit (can be used multiple times)",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--read",
         action="append",
         metavar="FILE",
         help="specify a read-only file (can be used multiple times)",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--vim",
         action="store_true",
@@ -773,7 +773,7 @@ def get_parser(default_config_files, git_root):
         "--load",
         metavar="LOAD_FILE",
         help="Load and execute /commands from a file on launch",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--encoding",
         default="utf-8",
@@ -794,7 +794,7 @@ def get_parser(default_config_files, git_root):
             "Specify the config file (default: search for .aider.conf.yml in git root, cwd"
             " or home directory)"
         ),
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     # This is a duplicate of the argument in the preparser and is a no-op by this time of
     # argument parsing, but it's here so that the help is displayed as expected.
     group.add_argument(
@@ -802,7 +802,7 @@ def get_parser(default_config_files, git_root):
         metavar="ENV_FILE",
         default=default_env_file(git_root),
         help="Specify the .env file to load (default: .env in git root)",
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type: ignore[attr-defined]
     group.add_argument(
         "--suggest-shell-commands",
         action=argparse.BooleanOptionalAction,
