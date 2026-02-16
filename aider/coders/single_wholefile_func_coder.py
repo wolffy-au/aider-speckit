@@ -96,7 +96,9 @@ class SingleWholeFileFunctionCoder(Coder):
         dump(res)
         return [res]
 
-    def apply_edits(self, edits):
+    def apply_edits(self, edits, dry_run: bool = False):
         for path, content in edits:
             full_path = self.abs_root_path(path)
+            if dry_run:
+                continue
             self.io.write_text(full_path, content)
