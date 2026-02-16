@@ -66,10 +66,10 @@ class GitRepo:
         git_dname,
         aider_ignore_file=None,
         models=None,
-        attribute_author=True,
-        attribute_committer=True,
-        attribute_commit_message_author=False,
-        attribute_commit_message_committer=False,
+        attribute_author: bool | None = True,
+        attribute_committer: bool | None = True,
+        attribute_commit_message_author: bool | None = False,
+        attribute_commit_message_committer: bool | None = False,
         commit_prompt=None,
         subtree_only=False,
         git_commit_verify=True,
@@ -372,7 +372,7 @@ class GitRepo:
 
         return commit_message
 
-    def get_diffs(self, fnames=None):
+    def get_diffs(self, fnames=None) -> str:
         # We always want diffs of index and working dir
 
         current_branch_has_commits = False
@@ -415,6 +415,7 @@ class GitRepo:
             return diffs
         except ANY_GIT_ERROR as err:
             self.io.tool_error(f"Unable to diff: {err}")
+        return diffs
 
     def diff_commits(self, pretty, from_commit, to_commit):
         args = []
