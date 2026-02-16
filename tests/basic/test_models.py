@@ -95,9 +95,11 @@ class TestModels(unittest.TestCase):
         )  # Should return True because there's a problem with the editor model
         mock_io.tool_warning.assert_called_with(ANY)  # Ensure a warning was issued
 
-        warning_messages = [
-            warning_call.args[0] for warning_call in mock_io.tool_warning.call_args_list
-        ]
+        warning_messages = []
+        for warning_call in mock_io.tool_warning.call_args_list:
+            if warning_call.args is None:
+                continue
+            warning_messages.append(warning_call.args[0])
         print("Warning messages:", warning_messages)  # Add this line
 
         self.assertGreaterEqual(mock_io.tool_warning.call_count, 1)  # Expect two warnings
@@ -404,18 +406,20 @@ class TestModels(unittest.TestCase):
             model = Model("claude-3-5-sonnet-20240620")
             # Test that both the override and existing headers are present
             model = Model("claude-3-5-sonnet-20240620")
-            self.assertEqual(model.extra_params["extra_headers"]["Foo"], "bar")
+            extra_params = model.extra_params or {}
+            self.assertEqual(extra_params["extra_headers"]["Foo"], "bar")
             self.assertEqual(
-                model.extra_params["extra_headers"]["anthropic-beta"],
+                extra_params["extra_headers"]["anthropic-beta"],
                 ANTHROPIC_BETA_HEADER,
             )
-            self.assertEqual(model.extra_params["some_param"], "some value")
-            self.assertEqual(model.extra_params["max_tokens"], 8192)
+            self.assertEqual(extra_params["some_param"], "some value")
+            self.assertEqual(extra_params["max_tokens"], 8192)
 
             # Test that exact match overrides defaults but not overrides
             model = Model("gpt-4")
-            self.assertEqual(model.extra_params["extra_headers"]["Foo"], "bar")
-            self.assertEqual(model.extra_params["some_param"], "some value")
+            extra_params = model.extra_params or {}
+            self.assertEqual(extra_params["extra_headers"]["Foo"], "bar")
+            self.assertEqual(extra_params["some_param"], "some value")
         finally:
             # Clean up the temporary file
             import os
