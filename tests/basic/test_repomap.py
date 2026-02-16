@@ -4,6 +4,7 @@ import re
 import time
 import unittest
 from pathlib import Path
+from typing import Optional
 
 import git
 
@@ -12,6 +13,11 @@ from aider.io import InputOutput
 from aider.models import Model
 from aider.repomap import RepoMap
 from aider.utils import GitTemporaryDirectory, IgnorantTemporaryDirectory
+
+
+def require_repo_map_str(test_case: unittest.TestCase, result: Optional[str]) -> str:
+    test_case.assertIsInstance(result, str)
+    return result
 
 
 class TestRepoMap(unittest.TestCase):
@@ -35,7 +41,7 @@ class TestRepoMap(unittest.TestCase):
             io = InputOutput()
             repo_map = RepoMap(main_model=self.GPT35, root=temp_dir, io=io)
             other_files = [os.path.join(temp_dir, file) for file in test_files]
-            result = repo_map.get_repo_map([], other_files)
+            result = require_repo_map_str(self, repo_map.get_repo_map([], other_files))
 
             # Check if the result contains the expected tags map
             self.assertIn("test_file1.py", result)
@@ -76,7 +82,7 @@ class TestRepoMap(unittest.TestCase):
             ]
 
             # Get initial repo map
-            initial_map = repo_map.get_repo_map([], other_files)
+            initial_map = require_repo_map_str(self, repo_map.get_repo_map([], other_files))
             dump(initial_map)
             self.assertIn("function1", initial_map)
             self.assertIn("function2", initial_map)
@@ -87,7 +93,7 @@ class TestRepoMap(unittest.TestCase):
                 f.write("\ndef functionNEW():\n    return 'Hello NEW'\n")
 
             # Get another repo map
-            second_map = repo_map.get_repo_map([], other_files)
+            second_map = require_repo_map_str(self, repo_map.get_repo_map([], other_files))
             self.assertEqual(
                 initial_map, second_map, "RepoMap should not change with refresh='files'"
             )
@@ -96,7 +102,7 @@ class TestRepoMap(unittest.TestCase):
                 os.path.join(temp_dir, "file1.py"),
                 os.path.join(temp_dir, "file2.py"),
             ]
-            second_map = repo_map.get_repo_map([], other_files)
+            second_map = require_repo_map_str(self, repo_map.get_repo_map([], other_files))
             self.assertIn("functionNEW", second_map)
 
             # close the open cache files, so Windows won't error
@@ -136,7 +142,7 @@ class TestRepoMap(unittest.TestCase):
             repo_map.get_ranked_tags = slow_get_ranked_tags
 
             # Get initial repo map
-            initial_map = repo_map.get_repo_map(chat_files, other_files)
+            initial_map = require_repo_map_str(self, repo_map.get_repo_map(chat_files, other_files))
             self.assertIn("function1", initial_map)
             self.assertIn("function2", initial_map)
             self.assertNotIn("functionNEW", initial_map)
@@ -146,13 +152,15 @@ class TestRepoMap(unittest.TestCase):
                 f.write("\ndef functionNEW():\n    return 'Hello NEW'\n")
 
             # Get another repo map without force_refresh
-            second_map = repo_map.get_repo_map(chat_files, other_files)
+            second_map = require_repo_map_str(self, repo_map.get_repo_map(chat_files, other_files))
             self.assertEqual(
                 initial_map, second_map, "RepoMap should not change without force_refresh"
             )
 
             # Get a new repo map with force_refresh
-            final_map = repo_map.get_repo_map(chat_files, other_files, force_refresh=True)
+            final_map = require_repo_map_str(
+                self, repo_map.get_repo_map(chat_files, other_files, force_refresh=True)
+            )
             self.assertIn("functionNEW", final_map)
             self.assertNotEqual(initial_map, final_map, "RepoMap should change with force_refresh")
 
@@ -201,7 +209,7 @@ print(my_function(3, 4))
                 os.path.join(temp_dir, test_file2),
                 os.path.join(temp_dir, test_file3),
             ]
-            result = repo_map.get_repo_map([], other_files)
+            result = require_repo_map_str(self, repo_map.get_repo_map([], other_files))
 
             # Check if the result contains the expected tags map with identifiers
             self.assertIn("test_file_with_identifiers.py", result)
@@ -232,7 +240,7 @@ print(my_function(3, 4))
             repo_map = RepoMap(main_model=self.GPT35, root=temp_dir, io=InputOutput())
 
             other_files = [os.path.join(temp_dir, file) for file in test_files]
-            result = repo_map.get_repo_map([], other_files)
+            result = require_repo_map_str(self, repo_map.get_repo_map([], other_files))
             dump(other_files)
             dump(repr(result))
 
@@ -419,7 +427,7 @@ class TestRepoMapAllLanguages(unittest.TestCase):
             io = InputOutput()
             repo_map = RepoMap(main_model=self.GPT35, root=temp_dir, io=io)
             other_files = [test_file]
-            result = repo_map.get_repo_map([], other_files)
+            result = require_repo_map_str(self, repo_map.get_repo_map([], other_files))
             dump(lang)
             dump(result)
 
@@ -469,7 +477,8 @@ class TestRepoMapAllLanguages(unittest.TestCase):
         ]
 
         # Generate the repo map
-        generated_map_str = repo_map.get_repo_map([], other_files).strip()
+        generated_map = require_repo_map_str(self, repo_map.get_repo_map([], other_files))
+        generated_map_str = generated_map.strip()
 
         # Read the expected map from the file using UTF-8 encoding
         with open(expected_map_file, "r", encoding="utf-8") as f:
