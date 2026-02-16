@@ -24,7 +24,7 @@ except ImportError:  # Babel not installed – we will fall back to a small mapp
     Locale = None
 from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import List, Set
+from typing import List, Optional, Set, Tuple
 
 from rich.console import Console
 
@@ -2433,7 +2433,7 @@ class Coder:
     def get_edits(self, mode="update"):
         return []
 
-    def apply_edits(self, edits):
+    def apply_edits(self, edits, dry_run: bool = False) -> Optional[List[Tuple[str, str, str]]]:
         return
 
     def apply_edits_dry_run(self, edits):
