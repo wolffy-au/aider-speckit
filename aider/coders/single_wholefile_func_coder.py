@@ -38,7 +38,7 @@ class SingleWholeFileFunctionCoder(Coder):
         self.gpt_prompts = SingleWholeFileFunctionPrompts()
         super().__init__(*args, **kwargs)
 
-    def add_assistant_reply_to_cur_messages(self, edited):
+    def add_assistant_reply_to_cur_messages(self, edited=None):
         if edited:
             self.cur_messages += [
                 dict(role="assistant", content=self.gpt_prompts.redacted_edit_message)
@@ -84,7 +84,7 @@ class SingleWholeFileFunctionCoder(Coder):
 
         return "\n".join(show_diff)
 
-    def get_edits(self):
+    def get_edits(self, mode=None):
         chat_files = self.get_inchat_relative_files()
         assert len(chat_files) == 1, chat_files
 
