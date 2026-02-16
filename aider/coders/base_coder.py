@@ -24,7 +24,7 @@ except ImportError:  # Babel not installed – we will fall back to a small mapp
     Locale = None
 from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 from rich.console import Console
 
@@ -86,8 +86,8 @@ all_fences = [
 
 
 class Coder:
-    abs_fnames = None
-    abs_read_only_fnames = None
+    abs_fnames: Set[str]
+    abs_read_only_fnames: Set[str]
     repo = None
     last_aider_commit_hash = None
     aider_edited_files = None
