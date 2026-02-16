@@ -1750,9 +1750,10 @@ class TestCommands(TestCase):
                 commands.cmd_model("gpt-4")
 
         # Check that the SwitchCoder exception contains the correct model configuration
-        self.assertEqual(context.exception.kwargs.get("main_model").name, "gpt-4")
+        main_model = context.exception.kwargs["main_model"]
+        self.assertEqual(main_model.name, "gpt-4")
         # Check that the edit format is preserved
-        self.assertEqual(context.exception.kwargs.get("edit_format"), "udiff")
+        self.assertEqual(context.exception.kwargs["edit_format"], "udiff")
 
     def test_cmd_editor_model(self):
         io = InputOutput(pretty=False, fancy_input=False, yes=True)
@@ -1802,9 +1803,10 @@ class TestCommands(TestCase):
                 commands.cmd_model("gpt-4")
 
         # Check that the SwitchCoder exception contains the correct model configuration
-        self.assertEqual(context.exception.kwargs.get("main_model").name, "gpt-4")
+        main_model = context.exception.kwargs["main_model"]
+        self.assertEqual(main_model.name, "gpt-4")
         # Check that the edit format is updated to the new model's default
-        self.assertEqual(context.exception.kwargs.get("edit_format"), "diff")
+        self.assertEqual(context.exception.kwargs["edit_format"], "diff")
 
     def test_cmd_ask(self):
         io = InputOutput(pretty=False, fancy_input=False, yes=True)
