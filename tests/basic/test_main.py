@@ -8,6 +8,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 import git
+from git.exc import GitCommandNotFound
 from prompt_toolkit.input import DummyInput
 from prompt_toolkit.output import DummyOutput
 
@@ -117,6 +118,7 @@ class TestMain(TestCase):
     def test_setup_git(self):
         io = InputOutput(pretty=False, yes=True)
         git_root = setup_git(None, io)
+        self.assertIsNotNone(git_root)
         git_root = Path(git_root).resolve()
         self.assertEqual(git_root, Path(self.tempdir).resolve())
 
@@ -394,7 +396,8 @@ class TestMain(TestCase):
     def test_dark_mode_sets_code_theme(self):
         # Mock InputOutput to capture the configuration
         with patch("aider.main.InputOutput") as MockInputOutput:
-            MockInputOutput.return_value.get_input.return_value = None
+            mock_input_session = MagicMock(return_value=None)
+            MockInputOutput.return_value.get_input = mock_input_session
             main(["--dark-mode", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
             # Ensure InputOutput was called
             MockInputOutput.assert_called_once()
@@ -405,7 +408,8 @@ class TestMain(TestCase):
     def test_light_mode_sets_code_theme(self):
         # Mock InputOutput to capture the configuration
         with patch("aider.main.InputOutput") as MockInputOutput:
-            MockInputOutput.return_value.get_input.return_value = None
+            mock_input_session = MagicMock(return_value=None)
+            MockInputOutput.return_value.get_input = mock_input_session
             main(["--light-mode", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
             # Ensure InputOutput was called
             MockInputOutput.assert_called_once()
@@ -421,8 +425,9 @@ class TestMain(TestCase):
     def test_env_file_flag_sets_automatic_variable(self):
         env_file_path = self.create_env_file(".env.test", "AIDER_DARK_MODE=True")
         with patch("aider.main.InputOutput") as MockInputOutput:
-            MockInputOutput.return_value.get_input.return_value = None
-            MockInputOutput.return_value.get_input.confirm_ask = True
+            mock_input_session = MagicMock(return_value=None)
+            mock_input_session.confirm_ask = True
+            MockInputOutput.return_value.get_input = mock_input_session
             main(
                 ["--env-file", str(env_file_path), "--no-git", "--exit"],
                 input=DummyInput(),
@@ -436,8 +441,9 @@ class TestMain(TestCase):
     def test_default_env_file_sets_automatic_variable(self):
         self.create_env_file(".env", "AIDER_DARK_MODE=True")
         with patch("aider.main.InputOutput") as MockInputOutput:
-            MockInputOutput.return_value.get_input.return_value = None
-            MockInputOutput.return_value.get_input.confirm_ask = True
+            mock_input_session = MagicMock(return_value=None)
+            mock_input_session.confirm_ask = True
+            MockInputOutput.return_value.get_input = mock_input_session
             main(["--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
             # Ensure InputOutput was called
             MockInputOutput.assert_called_once()
@@ -1155,7 +1161,7 @@ class TestMain(TestCase):
 
     @patch("git.Repo.init")
     def test_main_exit_with_git_command_not_found(self, mock_git_init):
-        mock_git_init.side_effect = git.exc.GitCommandNotFound("git", "Command 'git' not found")
+        mock_git_init.side_effect = GitCommandNotFound("git", "Command 'git' not found")
 
         try:
             result = main(["--exit", "--yes"], input=DummyInput(), output=DummyOutput())
