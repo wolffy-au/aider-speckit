@@ -1736,7 +1736,7 @@ class TestCommands(TestCase):
         )
         self.assertEqual(weak_model.name, self.GPT35.weak_model.name)
         # Check that the edit format is updated to the new model's default
-        self.assertEqual(context.exception.kwargs.get("edit_format"), "diff")
+        self.assertEqual(context.exception.kwargs["edit_format"], "diff")
 
     def test_cmd_model_preserves_explicit_edit_format(self):
         io = InputOutput(pretty=False, fancy_input=False, yes=True)
@@ -1868,7 +1868,7 @@ class TestCommands(TestCase):
                 self.assertEqual(Path(called_arg).name, filename)
 
             # Verify that the file is still dirty after linting
-            self.assertTrue(repo.is_dirty(filename))
+            self.assertTrue(repo.is_dirty(path=filename))
 
             del coder
             del commands
