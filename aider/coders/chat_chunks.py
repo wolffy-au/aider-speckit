@@ -45,14 +45,14 @@ class ChatChunks:
             return
 
         content = messages[-1]["content"]
-        if type(content) is str:
+        if isinstance(content, str):
             content = dict(
                 type="text",
                 text=content,
             )
         content["cache_control"] = {"type": "ephemeral"}
 
-        messages[-1]["content"] = [content]
+        messages[-1]["content"] = content
 
     def cacheable_messages(self):
         messages = self.all_messages()
