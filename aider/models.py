@@ -337,7 +337,8 @@ class Model(ModelSettings):
 
         # Are all needed keys/params available?
         res = self.validate_environment()
-        self.missing_keys = res.get("missing_keys")
+        missing_keys = res.get("missing_keys")
+        self.missing_keys = missing_keys if isinstance(missing_keys, list) else []
         self.keys_in_environment = res.get("keys_in_environment")
 
         max_input_tokens = self.info.get("max_input_tokens") or 0
