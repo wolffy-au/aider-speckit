@@ -312,7 +312,7 @@ class RepoMap:
             return
 
         query_scm = get_scm_fname(lang)
-        if query_scm is None:
+        if query_scm is None or not query_scm.exists():
             return
         query_scm_text = query_scm.read_text()
 
