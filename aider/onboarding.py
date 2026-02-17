@@ -162,6 +162,8 @@ def find_available_port(start_port=8484, end_port=8584):
         try:
             # Check if the port is available by trying to bind to it
             with socketserver.TCPServer(("localhost", port), None) as server:
+                if server is None:
+                    return port
                 server.RequestHandlerClass = _TestFriendlyRequestHandler
                 return port
         except OSError:
