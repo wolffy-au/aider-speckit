@@ -154,9 +154,10 @@ def find_available_port(start_port=8484, end_port=8584):
     for port in range(start_port, end_port + 1):
         try:
             # Check if the port is available by trying to bind to it
+            request_handler = http.server.SimpleHTTPRequestHandler
             with socketserver.TCPServer(
                 ("localhost", port),
-                http.server.SimpleHTTPRequestHandler,
+                request_handler,
             ):
                 return port
         except OSError:
