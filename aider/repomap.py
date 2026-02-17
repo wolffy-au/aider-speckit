@@ -21,7 +21,6 @@ from tree_sitter import Query
 
 from aider.dump import dump
 from aider.io import InputOutput
-from aider.llm import Model
 from aider.special import filter_important_files
 from aider.waiting import Spinner
 
@@ -62,7 +61,7 @@ class RepoMap:
         self,
         map_tokens=1024,
         root=None,
-        main_model: Model | None = None,
+        main_model: Any | None = None,
         io: InputOutput | None = None,
         repo_content_prefix=None,
         verbose=False,
@@ -88,7 +87,7 @@ class RepoMap:
 
         self.repo_content_prefix = repo_content_prefix
 
-        self.main_model: Model | None = main_model
+        self.main_model: Any | None = main_model
 
         self.tree_cache = {}
         self.tree_context_cache = {}
