@@ -7,10 +7,11 @@ import os
 import platform
 import sys
 import time
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
+from dataclasses import fields as dataclass_fields
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, List, Optional, Union
 
 import json5
 import yaml
@@ -319,7 +320,9 @@ class Model(ModelSettings):
         self, model, weak_model=None, editor_model=None, editor_edit_format=None, verbose=False
     ):
         # Map any alias to its canonical name
-        model = MODEL_ALIASES.get(model, model)
+        alias = MODEL_ALIASES.get(model)
+        if alias:
+            model = alias
 
         self.name = model
         self.verbose = verbose
@@ -362,7 +365,7 @@ class Model(ModelSettings):
 
     def _copy_fields(self, source):
         """Helper to copy fields from a ModelSettings instance to self"""
-        for field in fields(ModelSettings):
+        for field in dataclass_fields(ModelSettings):
             val = getattr(source, field.name)
             setattr(self, field.name, val)
 
@@ -394,40 +397,37 @@ class Model(ModelSettings):
         # Apply override settings last if they exist
         if (
             self.extra_model_settings
-            and self.extra_model_settings.extra_params
+            and isinstance(self.extra_model_settings.extra_params, dict)
             and self.extra_model_settings.name == "aider/extra_params"
         ):
-            # Initialize extra_params if it doesn't exist
-            if not self.extra_params:
-                self.extra_params = {}
-
-            # Deep merge the extra_params dicts
+            extra_params = self._ensure_extra_params()
             for key, value in self.extra_model_settings.extra_params.items():
-                if isinstance(value, dict) and isinstance(self.extra_params.get(key), dict):
-                    # For nested dicts, merge recursively
-                    self.extra_params[key] = {**self.extra_params[key], **value}
+                if not isinstance(key, str):
+                    continue
+                existing = extra_params.get(key)
+                if isinstance(value, dict) and isinstance(existing, dict):
+                    extra_params[key] = {**existing, **value}
                 else:
-                    # For non-dict values, simply update
-                    self.extra_params[key] = value
+                    extra_params[key] = value
 
         # Ensure OpenRouter models accept thinking_tokens and reasoning_effort
         if self.name.startswith("openrouter/"):
-            if self.accepts_settings is None:
-                self.accepts_settings = []
-            if "thinking_tokens" not in self.accepts_settings:
-                self.accepts_settings.append("thinking_tokens")
-            if "reasoning_effort" not in self.accepts_settings:
-                self.accepts_settings.append("reasoning_effort")
+            accepts_settings = self._ensure_accepts_settings()
+            if "thinking_tokens" not in accepts_settings:
+                accepts_settings.append("thinking_tokens")
+            if "reasoning_effort" not in accepts_settings:
+                accepts_settings.append("reasoning_effort")
 
     def apply_generic_model_settings(self, model):
+        accepts_settings = self._ensure_accepts_settings()
         if "/o3-mini" in model:
             self.edit_format = "diff"
             self.use_repo_map = True
             self.use_temperature = False
             self.system_prompt_prefix = "Formatting re-enabled. "
             self.system_prompt_prefix = "Formatting re-enabled. "
-            if "reasoning_effort" not in self.accepts_settings:
-                self.accepts_settings.append("reasoning_effort")
+            if "reasoning_effort" not in accepts_settings:
+                accepts_settings.append("reasoning_effort")
             return  # <--
 
         if "gpt-4.1-mini" in model:
@@ -448,8 +448,8 @@ class Model(ModelSettings):
         if last_segment in ("gpt-5", "gpt-5-2025-08-07"):
             self.use_temperature = False
             self.edit_format = "diff"
-            if "reasoning_effort" not in self.accepts_settings:
-                self.accepts_settings.append("reasoning_effort")
+            if "reasoning_effort" not in accepts_settings:
+                accepts_settings.append("reasoning_effort")
             return  # <--
 
         if "/o1-mini" in model:
@@ -471,8 +471,8 @@ class Model(ModelSettings):
             self.use_temperature = False
             self.streaming = False
             self.system_prompt_prefix = "Formatting re-enabled. "
-            if "reasoning_effort" not in self.accepts_settings:
-                self.accepts_settings.append("reasoning_effort")
+            if "reasoning_effort" not in accepts_settings:
+                accepts_settings.append("reasoning_effort")
             return  # <--
 
         if "deepseek" in model and "v3" in model:
@@ -524,8 +524,8 @@ class Model(ModelSettings):
             self.edit_format = "diff"
             self.use_repo_map = True
             self.examples_as_sys_msg = False
-            if "thinking_tokens" not in self.accepts_settings:
-                self.accepts_settings.append("thinking_tokens")
+            if "thinking_tokens" not in accepts_settings:
+                accepts_settings.append("thinking_tokens")
             return  # <--
 
         if "3-7-sonnet" in model:
@@ -533,8 +533,8 @@ class Model(ModelSettings):
             self.use_repo_map = True
             self.examples_as_sys_msg = True
             self.reminder = "user"
-            if "thinking_tokens" not in self.accepts_settings:
-                self.accepts_settings.append("thinking_tokens")
+            if "thinking_tokens" not in accepts_settings:
+                accepts_settings.append("thinking_tokens")
             return  # <--
 
         if "3.5-sonnet" in model or "3-5-sonnet" in model:
@@ -585,6 +585,16 @@ class Model(ModelSettings):
 
     def __str__(self):
         return self.name
+
+    def _ensure_accepts_settings(self) -> List[str]:
+        if self.accepts_settings is None:
+            self.accepts_settings = []
+        return self.accepts_settings
+
+    def _ensure_extra_params(self) -> dict[str, Any]:
+        if self.extra_params is None:
+            self.extra_params = {}
+        return self.extra_params
 
     def get_weak_model(self, provided_weak_model_name):
         # If weak_model_name is provided, override the model settings
@@ -777,18 +787,13 @@ class Model(ModelSettings):
     def set_reasoning_effort(self, effort):
         """Set the reasoning effort parameter for models that support it"""
         if effort is not None:
+            extra_params = self._ensure_extra_params()
             if self.name.startswith("openrouter/"):
-                if not self.extra_params:
-                    self.extra_params = {}
-                if "extra_body" not in self.extra_params:
-                    self.extra_params["extra_body"] = {}
-                self.extra_params["extra_body"]["reasoning"] = {"effort": effort}
+                extra_body = extra_params.setdefault("extra_body", {})
+                extra_body["reasoning"] = {"effort": effort}
             else:
-                if not self.extra_params:
-                    self.extra_params = {}
-                if "extra_body" not in self.extra_params:
-                    self.extra_params["extra_body"] = {}
-                self.extra_params["extra_body"]["reasoning_effort"] = effort
+                extra_body = extra_params.setdefault("extra_body", {})
+                extra_body["reasoning_effort"] = effort
 
     def parse_token_value(self, value):
         """
@@ -830,24 +835,19 @@ class Model(ModelSettings):
         if value is not None:
             num_tokens = self.parse_token_value(value)
             self.use_temperature = False
-            if not self.extra_params:
-                self.extra_params = {}
+            extra_params = self._ensure_extra_params()
 
-            # OpenRouter models use 'reasoning' instead of 'thinking'
             if self.name.startswith("openrouter/"):
-                if "extra_body" not in self.extra_params:
-                    self.extra_params["extra_body"] = {}
+                extra_body = extra_params.setdefault("extra_body", {})
                 if num_tokens > 0:
-                    self.extra_params["extra_body"]["reasoning"] = {"max_tokens": num_tokens}
+                    extra_body["reasoning"] = {"max_tokens": num_tokens}
                 else:
-                    if "reasoning" in self.extra_params["extra_body"]:
-                        del self.extra_params["extra_body"]["reasoning"]
+                    extra_body.pop("reasoning", None)
             else:
                 if num_tokens > 0:
-                    self.extra_params["thinking"] = {"type": "enabled", "budget_tokens": num_tokens}
+                    extra_params["thinking"] = {"type": "enabled", "budget_tokens": num_tokens}
                 else:
-                    if "thinking" in self.extra_params:
-                        del self.extra_params["thinking"]
+                    extra_params.pop("thinking", None)
 
     def get_raw_thinking_tokens(self):
         """Get formatted thinking token budget if available"""
@@ -975,7 +975,7 @@ class Model(ModelSettings):
         if self.is_deepseek_r1():
             messages = ensure_alternating_roles(messages)
 
-        kwargs = dict(
+        kwargs: dict[str, Any] = dict(
             model=self.name,
             stream=stream,
         )
@@ -1106,7 +1106,7 @@ def register_litellm_models(model_fnames):
             if not data.strip():
                 continue
             model_def = json5.loads(data)
-            if not model_def:
+            if not model_def or not isinstance(model_def, dict):
                 continue
 
             # Defer registration with litellm to faster path.
@@ -1214,7 +1214,10 @@ def fuzzy_match_models(name):
     name = name.lower()
 
     chat_models = set()
-    model_metadata = list(litellm.model_cost.items())
+    model_cost = getattr(litellm, "model_cost", {})
+    if not isinstance(model_cost, dict):
+        model_cost = {}
+    model_metadata = list(model_cost.items())
     model_metadata += list(model_info_manager.local_model_metadata.items())
 
     for orig_model, attrs in model_metadata:
@@ -1266,14 +1269,10 @@ def print_matching_models(io, search):
 
 
 def get_model_settings_as_yaml():
-    from dataclasses import fields
-
-    import yaml
-
     model_settings_list = []
     # Add default settings first with all field values
     defaults = {}
-    for field in fields(ModelSettings):
+    for field in dataclass_fields(ModelSettings):
         defaults[field.name] = field.default
     defaults["name"] = "(default values)"
     model_settings_list.append(defaults)
@@ -1282,7 +1281,7 @@ def get_model_settings_as_yaml():
     for ms in sorted(MODEL_SETTINGS, key=lambda x: x.name):
         # Create dict with explicit field order
         model_settings_dict = {}
-        for field in fields(ModelSettings):
+        for field in dataclass_fields(ModelSettings):
             value = getattr(ms, field.name)
             if value != field.default:
                 model_settings_dict[field.name] = value
