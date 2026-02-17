@@ -4,6 +4,7 @@ import re
 import sys
 from difflib import SequenceMatcher
 from pathlib import Path
+from typing import List, Literal, Tuple, Union
 
 from aider import utils
 
@@ -18,7 +19,9 @@ class EditBlockCoder(Coder):
     edit_format = "diff"
     gpt_prompts = EditBlockPrompts()
 
-    def get_edits(self, mode=None):
+    def get_edits(
+        self, mode: Literal["update", "diff"] = "update"
+    ) -> Union[List[Tuple[str, str, str]], str]:
         content = self.partial_response_content
 
         # might raise ValueError for malformed ORIG/UPD blocks
