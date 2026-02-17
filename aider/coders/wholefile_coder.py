@@ -132,7 +132,7 @@ class WholeFileCoder(Coder):
 
         return refined_edits
 
-    def apply_edits(self, edits):
+    def apply_edits(self, edits, dry_run: bool = False):
         for path, fname_source, new_lines in edits:
             full_path = self.abs_root_path(path)
             new_lines = "".join(new_lines)
