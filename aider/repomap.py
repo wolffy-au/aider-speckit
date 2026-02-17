@@ -10,7 +10,7 @@ import warnings
 from collections import Counter, defaultdict
 from importlib import resources
 from pathlib import Path
-from typing import Any, NamedTuple, cast
+from typing import Any, NamedTuple
 
 from diskcache import Cache
 from grep_ast import TreeContext, filename_to_lang
@@ -26,12 +26,7 @@ from aider.waiting import Spinner
 
 # tree_sitter is throwing a FutureWarning
 warnings.simplefilter("ignore", category=FutureWarning)
-from grep_ast.tsl import (  # noqa: E402
-    USING_TSL_PACK,
-    SupportedLanguage,
-    get_language,
-    get_parser,
-)
+from grep_ast.tsl import USING_TSL_PACK, get_language, get_parser  # noqa: E402
 
 
 class Tag(NamedTuple):
@@ -309,11 +304,9 @@ class RepoMap:
         if not lang:
             return
 
-        supported_lang = cast(SupportedLanguage, lang)
-
         try:
-            language = get_language(supported_lang)
-            parser = get_parser(supported_lang)
+            language = get_language(lang)
+            parser = get_parser(lang)
         except Exception as err:
             print(f"Skipping file {fname}: {err}")
             return
