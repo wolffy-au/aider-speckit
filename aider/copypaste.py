@@ -10,7 +10,7 @@ class ClipboardWatcher:
     def __init__(self, io, verbose=False):
         self.io = io
         self.verbose = verbose
-        self.stop_event = None
+        self.stop_event: threading.Event | None = None
         self.watcher_thread = None
         self.last_clipboard = None
         self.io.clipboard_watcher = self
@@ -18,10 +18,11 @@ class ClipboardWatcher:
     def start(self):
         """Start watching clipboard for changes"""
         self.stop_event = threading.Event()
+        stop_event = self.stop_event
         self.last_clipboard = pyperclip.paste()
 
         def watch_clipboard():
-            while not self.stop_event.is_set():
+            while not stop_event.is_set():
                 try:
                     current = pyperclip.paste()
                     if current != self.last_clipboard:
