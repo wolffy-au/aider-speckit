@@ -4,10 +4,10 @@ import json
 import os
 import shutil
 import warnings
+from importlib.abc import Traversable
 from pathlib import Path
 
 import importlib_resources
-from importlib_resources import Traversable
 
 from aider import __version__, utils
 from aider.dump import dump  # noqa: F401
