@@ -13,7 +13,7 @@ try:
         InvalidGitRepositoryError,
         ODBError,
     )
-    from gitdb.base import LooseObjectDB
+    from gitdb.db import LooseObjectDB
 except ImportError as exc:
     raise ImportError("GitPython is required to use GitRepo.") from exc
 
