@@ -3,6 +3,7 @@
 import os
 import random
 import sys
+from typing import Any, List, Optional, cast
 
 import streamlit as st
 
@@ -15,20 +16,23 @@ from aider.scrape import Scraper, has_playwright
 
 
 class CaptureIO(InputOutput):
-    lines = []
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lines: List[str] = []
 
-    def tool_output(self, msg, log_only=False):
+    def tool_output(self, *messages, log_only=False, bold=False):
         if not log_only:
-            self.lines.append(msg)
-        super().tool_output(msg, log_only=log_only)
+            message = " ".join(str(m) for m in messages)
+            self.lines.append(message)
+        super().tool_output(*messages, log_only=log_only, bold=bold)
 
-    def tool_error(self, msg):
-        self.lines.append(msg)
-        super().tool_error(msg)
+    def tool_error(self, message="", strip=True):
+        self.lines.append(message)
+        super().tool_error(message, strip=strip)
 
-    def tool_warning(self, msg):
-        self.lines.append(msg)
-        super().tool_warning(msg)
+    def tool_warning(self, message="", strip=True):
+        self.lines.append(message)
+        super().tool_warning(message, strip=strip)
 
     def get_captured_lines(self):
         lines = self.lines
@@ -50,7 +54,17 @@ def search(text=None):
 
 # Keep state as a resource, which survives browser reloads (since Coder does too)
 class State:
-    keys = set()
+    def __init__(self):
+        self.keys: set[str] = set()
+        self.messages: List[dict[str, Any]] = []
+        self.last_aider_commit_hash: Optional[str] = None
+        self.last_undone_commit_hash: Optional[str] = None
+        self.recent_msgs_num: int = 0
+        self.web_content_num: int = 0
+        self.prompt: Optional[str] = None
+        self.input_history: List[str] = []
+        self.initial_inchat_files: List[str] = []
+        self.scraper: Optional[Scraper] = None
 
     def init(self, key, val=None):
         if key in self.keys:
@@ -323,7 +337,7 @@ class GUI:
                         st.write(msg["content"])
                         # self.cost()
                 else:
-                    st.dict(msg)
+                    st.json(msg)
 
     def initialize_state(self):
         messages = [
@@ -412,6 +426,7 @@ class GUI:
     def process_chat(self):
         prompt = self.state.prompt
         self.state.prompt = None
+        repo = self.coder.repo
 
         # This duplicates logic from within Coder
         self.num_reflections = 0
@@ -439,12 +454,13 @@ class GUI:
                 edit["commit_hash"] = self.coder.last_aider_commit_hash
                 edit["commit_message"] = self.coder.last_aider_commit_message
                 commits = f"{self.coder.last_aider_commit_hash}~1"
-                diff = self.coder.repo.diff_commits(
-                    self.coder.pretty,
-                    commits,
-                    self.coder.last_aider_commit_hash,
-                )
-                edit["diff"] = diff
+                if repo is not None:
+                    diff = repo.diff_commits(
+                        self.coder.pretty,
+                        commits,
+                        self.coder.last_aider_commit_hash,
+                    )
+                    edit["diff"] = diff
                 self.state.last_aider_commit_hash = self.coder.last_aider_commit_hash
 
             self.state.messages.append(edit)
@@ -505,9 +521,10 @@ class GUI:
             self.info(f"Commit `{commit_hash}` is not the latest commit.")
             return
 
-        self.coder.commands.io.get_captured_lines()
+        capture_io = cast(CaptureIO, self.coder.commands.io)
+        capture_io.get_captured_lines()
         reply = self.coder.commands.cmd_undo(None)
-        lines = self.coder.commands.io.get_captured_lines()
+        lines = capture_io.get_captured_lines()
 
         lines = "\n".join(lines)
         lines = lines.splitlines()
