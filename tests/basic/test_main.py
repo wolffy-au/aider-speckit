@@ -393,29 +393,29 @@ class TestMain(TestCase):
         args, kwargs = MockInputOutput.call_args
         self.assertEqual(args[1], None)
 
-    def test_dark_mode_sets_code_theme(self):
+    @patch("aider.main.InputOutput")
+    def test_dark_mode_sets_code_theme(self, MockInputOutput: MagicMock):
         # Mock InputOutput to capture the configuration
-        with patch("aider.main.InputOutput") as MockInputOutput:
-            mock_input_session = MagicMock(return_value=None)
-            MockInputOutput.return_value.get_input = mock_input_session
-            main(["--dark-mode", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
-            # Ensure InputOutput was called
-            MockInputOutput.assert_called_once()
-            # Check if the code_theme setting is for dark mode
-            _, kwargs = MockInputOutput.call_args
-            self.assertEqual(kwargs["code_theme"], "monokai")
+        mock_input_session = MagicMock(return_value=None)
+        MockInputOutput.return_value.get_input = mock_input_session
+        main(["--dark-mode", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
+        # Ensure InputOutput was called
+        MockInputOutput.assert_called_once()
+        # Check if the code_theme setting is for dark mode
+        _, kwargs = MockInputOutput.call_args
+        self.assertEqual(kwargs["code_theme"], "monokai")
 
-    def test_light_mode_sets_code_theme(self):
+    @patch("aider.main.InputOutput")
+    def test_light_mode_sets_code_theme(self, MockInputOutput: MagicMock):
         # Mock InputOutput to capture the configuration
-        with patch("aider.main.InputOutput") as MockInputOutput:
-            mock_input_session = MagicMock(return_value=None)
-            MockInputOutput.return_value.get_input = mock_input_session
-            main(["--light-mode", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
-            # Ensure InputOutput was called
-            MockInputOutput.assert_called_once()
-            # Check if the code_theme setting is for light mode
-            _, kwargs = MockInputOutput.call_args
-            self.assertEqual(kwargs["code_theme"], "default")
+        mock_input_session = MagicMock(return_value=None)
+        MockInputOutput.return_value.get_input = mock_input_session
+        main(["--light-mode", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
+        # Ensure InputOutput was called
+        MockInputOutput.assert_called_once()
+        # Check if the code_theme setting is for light mode
+        _, kwargs = MockInputOutput.call_args
+        self.assertEqual(kwargs["code_theme"], "default")
 
     def create_env_file(self, file_name, content):
         env_file_path = Path(self.tempdir) / file_name
