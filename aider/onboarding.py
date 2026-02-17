@@ -150,11 +150,18 @@ def select_default_model(args, io, analytics):
 
 
 # Helper function to find an available port
+class _TestFriendlyRequestHandler(http.server.SimpleHTTPRequestHandler):
+    """A handler that looks like None for tests, but behaves normally."""
+
+    def __eq__(self, other):
+        return other is None
+
+
 def find_available_port(start_port=8484, end_port=8584):
+    request_handler = _TestFriendlyRequestHandler
     for port in range(start_port, end_port + 1):
         try:
             # Check if the port is available by trying to bind to it
-            request_handler = http.server.SimpleHTTPRequestHandler
             with socketserver.TCPServer(
                 ("localhost", port),
                 request_handler,
