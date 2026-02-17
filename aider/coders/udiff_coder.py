@@ -50,14 +50,20 @@ class UnifiedDiffCoder(Coder):
     edit_format = "udiff"
     gpt_prompts = UnifiedDiffPrompts()
 
-    def get_edits(self, mode=None):
+    def get_edits(
+        self,
+        mode: Literal["update", "diff"] = "update",
+    ) -> Union[List[Tuple[str, List[str]]], str]:
+        if mode == "diff":
+            return self.partial_response_content
+
         content = self.partial_response_content
 
         # might raise ValueError for malformed ORIG/UPD blocks
         raw_edits = list(find_diffs(content))
 
         last_path = None
-        edits = []
+        edits: List[Tuple[str, List[str]]] = []
         for path, hunk in raw_edits:
             if path:
                 last_path = path
