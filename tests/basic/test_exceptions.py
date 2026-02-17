@@ -34,6 +34,7 @@ def test_get_ex_info():
     assert isinstance(ex_info, ExInfo)
     assert ex_info.name == "AuthenticationError"
     assert ex_info.retry is False
+    assert ex_info.description is not None
     assert "API key" in ex_info.description
 
     # Test with unknown exception type
@@ -55,7 +56,9 @@ def test_rate_limit_error():
     rate_error = RateLimitError(message="Rate limit exceeded", llm_provider="openai", model="gpt-4")
     ex_info = ex.get_ex_info(rate_error)
     assert ex_info.retry is True
-    assert "rate limited" in ex_info.description.lower()
+    desc = ex_info.description
+    assert desc is not None
+    assert "rate limited" in desc.lower()
 
 
 def test_context_window_error():
@@ -82,6 +85,8 @@ def test_openrouter_error():
 
     ex_info = ex.get_ex_info(openrouter_error)
     assert ex_info.retry is True
-    assert "OpenRouter" in ex_info.description
-    assert "overloaded" in ex_info.description
-    assert "rate" in ex_info.description
+    desc = ex_info.description
+    assert desc is not None
+    assert "OpenRouter" in desc
+    assert "overloaded" in desc
+    assert "rate" in desc
