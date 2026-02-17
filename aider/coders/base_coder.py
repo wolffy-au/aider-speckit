@@ -2440,7 +2440,7 @@ class Coder:
 
     def get_edits(
         self, mode: Literal["update", "diff"] = "update"
-    ) -> Union[List[Tuple[str, str, List[str]]], str]:
+    ) -> Union[List[Tuple[str, str, Union[str, List[str]]]], str]:
         return []
 
     def apply_edits(self, edits, dry_run: bool = False) -> Optional[List[Tuple[str, str, str]]]:
