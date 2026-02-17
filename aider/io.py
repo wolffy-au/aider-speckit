@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from prompt_toolkit.completion import Completer, Completion, ThreadedCompleter
 from prompt_toolkit.cursor_shapes import ModalCursorShapeConfig
@@ -22,9 +22,9 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.vi_state import InputMode
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.lexers import PygmentsLexer
-from prompt_toolkit.output.vt100 import is_dumb_terminal
 from prompt_toolkit.shortcuts import CompleteStyle, PromptSession
 from prompt_toolkit.styles import Style
+from prompt_toolkit.utils import is_dumb_terminal
 from pygments.lexers import MarkdownLexer, guess_lexer_for_filename
 from pygments.token import Token
 from rich.color import ColorParseError
@@ -438,14 +438,14 @@ class InputOutput:
             with open(str(filename), "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read())
                 return encoded_string.decode("utf-8")
-        except OSError as err:
-            self.tool_error(f"{filename}: unable to read: {err}")
-            return
         except FileNotFoundError:
             self.tool_error(f"{filename}: file not found error")
             return
         except IsADirectoryError:
             self.tool_error(f"{filename}: is a directory")
+            return
+        except OSError as err:
+            self.tool_error(f"{filename}: unable to read: {err}")
             return
         except Exception as e:
             self.tool_error(f"{filename}: {e}")
@@ -509,8 +509,10 @@ class InputOutput:
 
     def rule(self):
         if self.pretty:
-            style = dict(style=self.user_input_color) if self.user_input_color else dict()
-            self.console.rule(**style)
+            if self.user_input_color:
+                self.console.rule(style=self.user_input_color)
+            else:
+                self.console.rule()
         else:
             print()
 
@@ -555,6 +557,7 @@ class InputOutput:
 
         inp = ""
         multiline_input = False
+        multiline_tag = None
 
         style = self._get_style()
 
@@ -677,14 +680,14 @@ class InputOutput:
 
             except EOFError:
                 raise
+            except UnicodeEncodeError as err:
+                self.tool_error(str(err))
+                return ""
             except Exception as err:
                 import traceback
 
                 self.tool_error(str(err))
                 self.tool_error(traceback.format_exc())
-                return ""
-            except UnicodeEncodeError as err:
-                self.tool_error(str(err))
                 return ""
             finally:
                 if self.file_watcher:
@@ -767,11 +770,9 @@ class InputOutput:
 
     def display_user_input(self, inp):
         if self.pretty and self.user_input_color:
-            style = dict(style=self.user_input_color)
+            self.console.print(Text(inp), style=self.user_input_color)
         else:
-            style = dict()
-
-        self.console.print(Text(inp), **style)
+            self.console.print(Text(inp))
 
     def user_input(self, inp, log_only=True):
         if not log_only:
@@ -1155,6 +1156,8 @@ class InputOutput:
 
         read_only_files = sorted(rel_read_only_fnames or [])
         editable_files = [f for f in sorted(rel_fnames) if f not in rel_read_only_fnames]
+        read_only_lines: List[str] = []
+        editable_lines: List[str] = []
 
         if read_only_files:
             # Use shorter of abs/rel paths for readonly files
