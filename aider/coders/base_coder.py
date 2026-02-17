@@ -24,7 +24,7 @@ except ImportError:  # Babel not installed – we will fall back to a small mapp
     Locale = None
 from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Set, Tuple, Union, overload
+from typing import Any, List, Literal, Optional, Set, Tuple, Union
 
 from rich.console import Console
 
@@ -2429,14 +2429,6 @@ class Coder:
         # files changed, move cur messages back behind the files messages
         # self.move_back_cur_messages(self.gpt_prompts.files_content_local_edits)
         return True
-
-    @overload
-    def get_edits(self, mode: Literal["update"]) -> List[Any]:
-        ...
-
-    @overload
-    def get_edits(self, mode: Literal["diff"]) -> str:
-        ...
 
     def get_edits(self, mode: Literal["update", "diff"] = "update") -> Union[List[Any], str]:
         return []
