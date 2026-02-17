@@ -367,7 +367,7 @@ class TestMain(TestCase):
 
     @patch("aider.main.InputOutput")
     @patch("aider.coders.base_coder.Coder.run")
-    def test_main_message_adds_to_input_history(self, mock_run, MockInputOutput):
+    def test_main_message_adds_to_input_history(self, mock_run, MockInputOutput: MagicMock):
         test_message = "test message"
         mock_io_instance = MockInputOutput.return_value
 
@@ -377,7 +377,7 @@ class TestMain(TestCase):
 
     @patch("aider.main.InputOutput")
     @patch("aider.coders.base_coder.Coder.run")
-    def test_yes(self, mock_run, MockInputOutput):
+    def test_yes(self, mock_run, MockInputOutput: MagicMock):
         test_message = "test message"
 
         main(["--yes", "--message", test_message])
@@ -386,7 +386,7 @@ class TestMain(TestCase):
 
     @patch("aider.main.InputOutput")
     @patch("aider.coders.base_coder.Coder.run")
-    def test_default_yes(self, mock_run, MockInputOutput):
+    def test_default_yes(self, mock_run, MockInputOutput: MagicMock):
         test_message = "test message"
 
         main(["--message", test_message])
@@ -1378,7 +1378,7 @@ class TestMain(TestCase):
                 mock_instance.set_thinking_tokens.assert_not_called()
 
     @patch("aider.main.InputOutput")
-    def test_stream_and_cache_warning(self, MockInputOutput):
+    def test_stream_and_cache_warning(self, MockInputOutput: MagicMock):
         mock_io_instance = MockInputOutput.return_value
         with GitTemporaryDirectory():
             main(
@@ -1391,7 +1391,7 @@ class TestMain(TestCase):
         )
 
     @patch("aider.main.InputOutput")
-    def test_stream_without_cache_no_warning(self, MockInputOutput):
+    def test_stream_without_cache_no_warning(self, MockInputOutput: MagicMock):
         mock_io_instance = MockInputOutput.return_value
         with GitTemporaryDirectory():
             main(
@@ -1477,7 +1477,7 @@ class TestMain(TestCase):
             os.chdir(original_cwd)
 
     @patch("aider.main.InputOutput")
-    def test_cache_without_stream_no_warning(self, MockInputOutput):
+    def test_cache_without_stream_no_warning(self, MockInputOutput: MagicMock):
         mock_io_instance = MockInputOutput.return_value
         with GitTemporaryDirectory():
             main(
