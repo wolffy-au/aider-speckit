@@ -10,7 +10,7 @@ class HelpCoder(Coder):
     gpt_prompts = HelpPrompts()
 
     def get_edits(self, mode="update"):
-        return []
+        return ""
 
     def apply_edits(self, edits, dry_run: bool = False):
         pass
