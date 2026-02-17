@@ -221,8 +221,9 @@ def run_install(cmd):
     except Exception:
         pass  # Continue even if ensurepip fails
 
+    output = ""
     try:
-        output = []
+        output_chars = []
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -233,19 +234,22 @@ def run_install(cmd):
             encoding=sys.stdout.encoding,
             errors="replace",
         )
+        stdout = process.stdout
+        if stdout is None:
+            raise RuntimeError("Failed to capture process stdout")
         spinner = Spinner("Installing...")
 
         while True:
-            char = process.stdout.read(1)
+            char = stdout.read(1)
             if not char:
                 break
 
-            output.append(char)
+            output_chars.append(char)
             spinner.step()
 
         spinner.end()
+        output = "".join(output_chars)
         return_code = process.wait()
-        output = "".join(output)
 
         if return_code == 0:
             print("Installation complete.")
