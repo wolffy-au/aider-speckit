@@ -1,6 +1,7 @@
 import importlib
 import os
 import warnings
+from typing import Any
 
 from aider.dump import dump  # noqa: F401
 
@@ -19,7 +20,7 @@ VERBOSE = False
 
 
 class LazyLiteLLM:
-    _lazy_module = None
+    _lazy_module: Any | None = None
 
     def __getattr__(self, name):
         if name == "_lazy_module":
