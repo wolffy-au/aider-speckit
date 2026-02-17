@@ -7,9 +7,10 @@ import sqlite3
 import sys
 import time
 import warnings
-from collections import Counter, defaultdict, namedtuple
+from collections import Counter, defaultdict
 from importlib import resources
 from pathlib import Path
+from typing import Any, NamedTuple, cast
 
 from diskcache import Cache
 from grep_ast import TreeContext, filename_to_lang
@@ -19,14 +20,27 @@ from tqdm import tqdm
 from tree_sitter import Query
 
 from aider.dump import dump
+from aider.io import InputOutput
+from aider.llm import Model
 from aider.special import filter_important_files
 from aider.waiting import Spinner
 
 # tree_sitter is throwing a FutureWarning
 warnings.simplefilter("ignore", category=FutureWarning)
-from grep_ast.tsl import USING_TSL_PACK, get_language, get_parser  # noqa: E402
+from grep_ast.tsl import (  # noqa: E402
+    USING_TSL_PACK,
+    SupportedLanguage,
+    get_language,
+    get_parser,
+)
 
-Tag = namedtuple("Tag", "rel_fname fname line name kind".split())
+
+class Tag(NamedTuple):
+    rel_fname: str
+    fname: str
+    line: int
+    name: str
+    kind: str
 
 
 SQLITE_ERRORS = (sqlite3.OperationalError, sqlite3.DatabaseError, OSError)
@@ -48,15 +62,15 @@ class RepoMap:
         self,
         map_tokens=1024,
         root=None,
-        main_model=None,
-        io=None,
+        main_model: Model | None = None,
+        io: InputOutput | None = None,
         repo_content_prefix=None,
         verbose=False,
         max_context_window=None,
         map_mul_no_files=8,
         refresh="auto",
     ):
-        self.io = io
+        self.io: InputOutput = io or InputOutput()
         self.verbose = verbose
         self.refresh = refresh
 
@@ -64,6 +78,7 @@ class RepoMap:
             root = os.getcwd()
         self.root = root
 
+        self.TAGS_CACHE: Any = {}
         self.load_tags_cache()
         self.cache_threshold = 0.95
 
@@ -73,7 +88,7 @@ class RepoMap:
 
         self.repo_content_prefix = repo_content_prefix
 
-        self.main_model = main_model
+        self.main_model: Model | None = main_model
 
         self.tree_cache = {}
         self.tree_context_cache = {}
@@ -88,6 +103,9 @@ class RepoMap:
 
     def token_count(self, text):
         len_text = len(text)
+        if self.main_model is None:
+            return len_text / 4
+
         if len_text < 200:
             return self.main_model.token_count(text)
 
@@ -143,6 +161,9 @@ class RepoMap:
         except RecursionError:
             self.io.tool_error("Disabling repo map, git repo too large?")
             self.max_map_tokens = 0
+            return
+
+        if files_listing is None:
             return
 
         if not files_listing:
@@ -221,6 +242,14 @@ class RepoMap:
         except SQLITE_ERRORS as e:
             self.tags_cache_error(e)
 
+    def tags_cache_size(self) -> int:
+        len_fn = getattr(self.TAGS_CACHE, "__len__", None)
+        if callable(len_fn):
+            result = len_fn()
+            if isinstance(result, int):
+                return result
+        return 0
+
     def save_tags_cache(self):
         pass
 
@@ -266,9 +295,9 @@ class RepoMap:
     def _run_captures(self, query: Query, node):
         # tree-sitter 0.23.2's python bindings had captures directly on the Query object
         # but 0.24.0 moved it to a separate QueryCursor class. Support both.
-        if hasattr(query, "captures"):
-            # Old API
-            return query.captures(node)
+        captures = getattr(query, "captures", None)
+        if callable(captures):
+            return captures(node)
 
         # New API
         from tree_sitter import QueryCursor
@@ -281,17 +310,19 @@ class RepoMap:
         if not lang:
             return
 
+        supported_lang = cast(SupportedLanguage, lang)
+
         try:
-            language = get_language(lang)
-            parser = get_parser(lang)
+            language = get_language(supported_lang)
+            parser = get_parser(supported_lang)
         except Exception as err:
             print(f"Skipping file {fname}: {err}")
             return
 
         query_scm = get_scm_fname(lang)
-        if not query_scm.exists():
+        if query_scm is None:
             return
-        query_scm = query_scm.read_text()
+        query_scm_text = query_scm.read_text()
 
         code = self.io.read_text(fname)
         if not code:
@@ -299,15 +330,14 @@ class RepoMap:
         tree = parser.parse(bytes(code, "utf-8"))
 
         # Run the tags queries
-        captures = self._run_captures(Query(language, query_scm), tree.root_node)
+        captures = self._run_captures(Query(language, query_scm_text), tree.root_node)
 
         captures_by_tag = defaultdict(list)
         matches = []
         for tag, nodes in captures.items():
             for node in nodes:
                 captures_by_tag[tag].append(node)
-            captures_by_tag[tag].append(node)
-            matches.append((node, tag))
+                matches.append((node, tag))
 
         if USING_TSL_PACK:
             all_nodes = [(node, tag) for tag, nodes in captures_by_tag.items() for node in nodes]
@@ -383,10 +413,10 @@ class RepoMap:
         personalize = 100 / len(fnames)
 
         try:
-            cache_size = len(self.TAGS_CACHE)
+            cache_size = self.tags_cache_size()
         except SQLITE_ERRORS as e:
             self.tags_cache_error(e)
-            cache_size = len(self.TAGS_CACHE)
+            cache_size = self.tags_cache_size()
 
         if len(fnames) - cache_size > 100:
             self.io.tool_output(
@@ -840,7 +870,7 @@ def get_supported_languages_md():
 
     for lang, ext in data:
         fn = get_scm_fname(lang)
-        repo_map = "✓" if Path(fn).exists() else ""
+        repo_map = "✓" if fn else ""
         linter_support = "✓"
         res += f"| {lang:20} | {ext:20} | {repo_map:^8} | {linter_support:^6} |\n"
 
@@ -862,6 +892,8 @@ if __name__ == "__main__":
 
     rm = RepoMap(root=".")
     repo_map = rm.get_ranked_tags_map(chat_fnames, other_fnames)
+    if repo_map is None:
+        repo_map = ""
 
     dump(len(repo_map))
     print(repo_map)
