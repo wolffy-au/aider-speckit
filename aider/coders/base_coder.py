@@ -24,7 +24,7 @@ except ImportError:  # Babel not installed – we will fall back to a small mapp
     Locale = None
 from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import List, Literal, Optional, Set, Tuple, Union, overload
+from typing import Any, List, Literal, Optional, Set, Tuple, Union, overload
 
 from rich.console import Console
 
@@ -2431,16 +2431,14 @@ class Coder:
         return True
 
     @overload
-    def get_edits(self, mode: Literal["update"]) -> List[Tuple[str, str, List[str]]]:
+    def get_edits(self, mode: Literal["update"]) -> List[Any]:
         ...
 
     @overload
     def get_edits(self, mode: Literal["diff"]) -> str:
         ...
 
-    def get_edits(
-        self, mode: Literal["update", "diff"] = "update"
-    ) -> Union[List[Tuple[str, str, Union[str, List[str]]]], str]:
+    def get_edits(self, mode: Literal["update", "diff"] = "update") -> Union[List[Any], str]:
         return []
 
     def apply_edits(self, edits, dry_run: bool = False) -> Optional[List[Tuple[str, str, str]]]:
