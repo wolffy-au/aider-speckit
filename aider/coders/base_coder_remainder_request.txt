@@ -1,0 +1,2 @@
+I currently only know the portion of ``aider/coders/base_coder.py`` that you provided earlier.
+Please share the remainder of that file if you need me to inspect or edit further.
