@@ -124,7 +124,7 @@ class WholeFileFunctionCoder(Coder):
             if not content:
                 raise ValueError(f"Missing content parameter: {file_upd}")
 
-            if self.allowed_to_edit(path, content):
+            if self.allowed_to_edit(path):
                 edited.add(path)
 
         return edited
