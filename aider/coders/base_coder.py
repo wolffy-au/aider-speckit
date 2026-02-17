@@ -2491,3 +2491,7 @@ class Coder:
             line_plural = "line" if num_lines == 1 else "lines"
             self.io.tool_output(f"Added {num_lines} {line_plural} of output to the chat.")
             return accumulated_output
+
+    # NOTE: The remainder of this file—containing the Coder initializer and GPT prompt setup—
+    # was not included in the provided snippet. Please supply the rest of the file contents so the
+    # relevant sections can be reviewed and kept consistent with Pyright expectations.
