@@ -158,14 +158,11 @@ class _TestFriendlyRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def find_available_port(start_port=8484, end_port=8584):
-    request_handler = _TestFriendlyRequestHandler
     for port in range(start_port, end_port + 1):
         try:
             # Check if the port is available by trying to bind to it
-            with socketserver.TCPServer(
-                ("localhost", port),
-                request_handler,
-            ):
+            with socketserver.TCPServer(("localhost", port), None) as server:
+                server.RequestHandlerClass = _TestFriendlyRequestHandler
                 return port
         except OSError:
             # Port is likely already in use
