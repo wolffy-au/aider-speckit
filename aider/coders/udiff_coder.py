@@ -1,7 +1,7 @@
 import difflib
 from itertools import groupby
 from pathlib import Path
-from typing import List, Literal, Tuple, Union, overload
+from typing import List, Literal, Optional, Tuple, Union, overload
 
 from ..dump import dump  # noqa: F401
 from .base_coder import Coder
@@ -62,14 +62,17 @@ class UnifiedDiffCoder(Coder):
         # might raise ValueError for malformed ORIG/UPD blocks
         raw_edits = list(find_diffs(content))
 
-        last_path = None
+        last_path: Optional[str] = None
         edits: List[Tuple[str, List[str]]] = []
         for path, hunk in raw_edits:
             if path:
                 last_path = path
+                current_path = path
+            elif last_path is None:
+                continue
             else:
-                path = last_path
-            edits.append((path, hunk))
+                current_path = last_path
+            edits.append((current_path, hunk))
 
         return edits
 
