@@ -125,7 +125,7 @@ class ModelSettings:
     overeager: bool = False
     reminder: str = "user"
     examples_as_sys_msg: bool = False
-    extra_params: Optional[dict] = None
+    extra_params: Optional[dict[str, Any]] = None
     cache_control: bool = False
     caches_by_default: bool = False
     use_system_prompt: bool = True
@@ -136,7 +136,7 @@ class ModelSettings:
     reasoning_tag: Optional[str] = None
     remove_reasoning: Optional[str] = None  # Deprecated alias for reasoning_tag
     system_prompt_prefix: Optional[str] = None
-    accepts_settings: Optional[list] = None
+    accepts_settings: Optional[List[str]] = None
 
 
 # Load model settings from package resource
