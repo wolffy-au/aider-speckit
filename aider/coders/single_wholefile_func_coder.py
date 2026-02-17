@@ -1,3 +1,5 @@
+from typing import List, Literal, Tuple, Union
+
 from aider import diffs
 
 from ..dump import dump  # noqa: F401
@@ -84,7 +86,12 @@ class SingleWholeFileFunctionCoder(Coder):
 
         return "\n".join(show_diff)
 
-    def get_edits(self, mode=None):
+    def get_edits(
+        self, mode: Literal["update", "diff"] = "update"
+    ) -> Union[List[Tuple[str, str]], str]:
+        if mode == "diff":
+            return ""
+
         chat_files = self.get_inchat_relative_files()
         assert len(chat_files) == 1, chat_files
 
