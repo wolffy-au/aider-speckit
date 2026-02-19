@@ -1,10 +1,13 @@
+import importlib
+
 from packaging import version
 
 __version__ = "0.86.3.dev"
 safe_version = __version__
 
 try:
-    from aider._version import __version__
+    mod = importlib.import_module("aider._version")
+    __version__ = getattr(mod, "__version__", safe_version + "+import")
 except Exception:
     __version__ = safe_version + "+import"
 
@@ -17,4 +20,4 @@ else:
     except Exception:
         __version__ = safe_version + "+parse"
 
-__all__ = [__version__]
+__all__ = ["__version__"]

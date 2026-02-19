@@ -2,28 +2,34 @@ import contextlib
 import os
 import time
 from pathlib import Path, PurePosixPath
+from typing import cast
 
 try:
     import git
-
-    ANY_GIT_ERROR = [
-        git.exc.ODBError,
-        git.exc.GitError,
-        git.exc.InvalidGitRepositoryError,
-        git.exc.GitCommandNotFound,
-    ]
-except ImportError:
-    git = None
-    ANY_GIT_ERROR = []
+    from git import GitDB
+    from git.exc import (
+        GitCommandNotFound,
+        GitError,
+        InvalidGitRepositoryError,
+        ODBError,
+    )
+    from gitdb.db import LooseObjectDB
+except ImportError as exc:
+    raise ImportError("GitPython is required to use GitRepo.") from exc
 
 import pathspec
+from pathspec.patterns import GitWildMatchPattern
 
 from aider import prompts, utils
 
 from .dump import dump  # noqa: F401
 from .waiting import WaitingSpinner
 
-ANY_GIT_ERROR += [
+ANY_GIT_ERROR = (
+    ODBError,
+    GitError,
+    InvalidGitRepositoryError,
+    GitCommandNotFound,
     OSError,
     IndexError,
     BufferError,
@@ -32,8 +38,7 @@ ANY_GIT_ERROR += [
     AttributeError,
     AssertionError,
     TimeoutError,
-]
-ANY_GIT_ERROR = tuple(ANY_GIT_ERROR)
+)
 
 
 @contextlib.contextmanager
@@ -50,7 +55,6 @@ def set_git_env(var_name, value, original_value):
 
 
 class GitRepo:
-    repo = None
     aider_ignore_file = None
     aider_ignore_spec = None
     aider_ignore_ts = 0
@@ -66,10 +70,10 @@ class GitRepo:
         git_dname,
         aider_ignore_file=None,
         models=None,
-        attribute_author=True,
-        attribute_committer=True,
-        attribute_commit_message_author=False,
-        attribute_commit_message_committer=False,
+        attribute_author: bool | None = True,
+        attribute_committer: bool | None = True,
+        attribute_commit_message_author: bool | None = False,
+        attribute_commit_message_committer: bool | None = False,
         commit_prompt=None,
         subtree_only=False,
         git_commit_verify=True,
@@ -90,6 +94,7 @@ class GitRepo:
         self.subtree_only = subtree_only
         self.git_commit_verify = git_commit_verify
         self.ignore_file_cache = {}
+        self.repo: git.Repo
 
         if git_dname:
             check_fnames = [git_dname]
@@ -122,7 +127,10 @@ class GitRepo:
             raise FileNotFoundError
 
         # https://github.com/gitpython-developers/GitPython/issues/427
-        self.repo = git.Repo(repo_paths.pop(), odbt=git.GitDB)
+        self.repo = git.Repo(
+            repo_paths.pop(),
+            odbt=cast(type[LooseObjectDB], GitDB),
+        )
         self.root = utils.safe_abs_path(self.repo.working_tree_dir)
 
         if aider_ignore_file:
@@ -372,7 +380,7 @@ class GitRepo:
 
         return commit_message
 
-    def get_diffs(self, fnames=None):
+    def get_diffs(self, fnames=None) -> str:
         # We always want diffs of index and working dir
 
         current_branch_has_commits = False
@@ -415,6 +423,7 @@ class GitRepo:
             return diffs
         except ANY_GIT_ERROR as err:
             self.io.tool_error(f"Unable to diff: {err}")
+        return diffs
 
     def diff_commits(self, pretty, from_commit, to_commit):
         args = []
@@ -451,22 +460,11 @@ class GitRepo:
             else:
                 try:
                     iterator = commit.tree.traverse()
-                    blob = None  # Initialize blob
-                    while True:
-                        try:
-                            blob = next(iterator)
-                            if blob.type == "blob":  # blob is a file
-                                files.add(blob.path)
-                        except IndexError:
-                            # Handle potential index error during tree traversal
-                            # without relying on potentially unassigned 'blob'
-                            self.io.tool_warning(
-                                "GitRepo: Index error encountered while reading git tree object."
-                                " Skipping."
-                            )
-                            continue
-                        except StopIteration:
-                            break
+                    for entry in iterator:
+                        entry_type = getattr(entry, "type", None)
+                        entry_path = getattr(entry, "path", None)
+                        if entry_type == "blob" and isinstance(entry_path, str):
+                            files.add(entry_path)
                 except ANY_GIT_ERROR as err:
                     self.git_repo_error = err
                     self.io.tool_error(f"Unable to list files in git repo: {err}")
@@ -516,7 +514,7 @@ class GitRepo:
             self.ignore_file_cache = {}
             lines = self.aider_ignore_file.read_text().splitlines()
             self.aider_ignore_spec = pathspec.PathSpec.from_lines(
-                pathspec.patterns.GitWildMatchPattern,
+                GitWildMatchPattern,
                 lines,
             )
 
@@ -561,6 +559,9 @@ class GitRepo:
             fname = self.normalize_path(fname)
         except ValueError:
             return True
+
+        if not self.aider_ignore_spec:
+            return False
 
         return self.aider_ignore_spec.match_file(fname)
 

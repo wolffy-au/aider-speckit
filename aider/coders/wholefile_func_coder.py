@@ -2,7 +2,6 @@ from aider import diffs
 
 from ..dump import dump  # noqa: F401
 from .base_coder import Coder
-from .wholefile_func_prompts import WholeFileFunctionPrompts
 
 
 class WholeFileFunctionCoder(Coder):
@@ -46,16 +45,13 @@ class WholeFileFunctionCoder(Coder):
     def __init__(self, *args, **kwargs):
         raise RuntimeError("Deprecated, needs to be refactored to support get_edits/apply_edits")
 
-        self.gpt_prompts = WholeFileFunctionPrompts()
         super().__init__(*args, **kwargs)
 
-    def add_assistant_reply_to_cur_messages(self, edited):
-        if edited:
-            self.cur_messages += [
-                dict(role="assistant", content=self.gpt_prompts.redacted_edit_message)
-            ]
-        else:
+    def add_assistant_reply_to_cur_messages(self):
+        if self.partial_response_content:
             self.cur_messages += [dict(role="assistant", content=self.partial_response_content)]
+        else:
+            self.cur_messages += [dict(role="assistant", content="No content to add")]
 
     def render_incremental_response(self, final=False):
         if self.partial_response_content:
@@ -128,7 +124,7 @@ class WholeFileFunctionCoder(Coder):
             if not content:
                 raise ValueError(f"Missing content parameter: {file_upd}")
 
-            if self.allowed_to_edit(path, content):
+            if self.allowed_to_edit(path):
                 edited.add(path)
 
         return edited

@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import git
+from git.exc import GitCommandError
 
 from aider.coders import Coder
 from aider.coders.base_coder import FinishReasonLength, UnknownEditFormat
@@ -580,7 +581,7 @@ Once I have these, I can show you precisely how to do the thing.
             self.assertTrue(fname.exists())
 
             # make sure it was not committed
-            with self.assertRaises(git.exc.GitCommandError):
+            with self.assertRaises(GitCommandError):
                 list(repo.iter_commits(repo.active_branch.name))
 
             def mock_send(*args, **kwargs):
@@ -1336,7 +1337,7 @@ This command will print 'Hello, World!' to the console."""
             with patch("aider.coders.architect_coder.AskCoder.__init__", return_value=None):
                 from aider.coders.architect_coder import ArchitectCoder
 
-                coder = ArchitectCoder()
+                coder = ArchitectCoder(main_model=self.GPT35, io=io)
                 coder.io = io
                 coder.main_model = self.GPT35
                 coder.auto_accept_architect = True
@@ -1371,7 +1372,7 @@ This command will print 'Hello, World!' to the console."""
             with patch("aider.coders.architect_coder.AskCoder.__init__", return_value=None):
                 from aider.coders.architect_coder import ArchitectCoder
 
-                coder = ArchitectCoder()
+                coder = ArchitectCoder(main_model=self.GPT35, io=io)
                 coder.io = io
                 coder.main_model = self.GPT35
                 coder.auto_accept_architect = False
@@ -1410,7 +1411,7 @@ This command will print 'Hello, World!' to the console."""
             with patch("aider.coders.architect_coder.AskCoder.__init__", return_value=None):
                 from aider.coders.architect_coder import ArchitectCoder
 
-                coder = ArchitectCoder()
+                coder = ArchitectCoder(main_model=self.GPT35, io=io)
                 coder.io = io
                 coder.main_model = self.GPT35
                 coder.auto_accept_architect = False

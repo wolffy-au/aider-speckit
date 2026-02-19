@@ -7,6 +7,7 @@ import tempfile
 from collections import OrderedDict
 from os.path import expanduser
 from pathlib import Path
+from typing import Tuple, Type
 
 import pyperclip
 from PIL import Image, ImageGrab
@@ -19,12 +20,14 @@ from aider.format_settings import format_settings
 from aider.help import Help, install_help_extra
 from aider.io import CommandCompletionException
 from aider.llm import litellm
-from aider.repo import ANY_GIT_ERROR
+from aider.repo import ANY_GIT_ERROR as REPO_ANY_GIT_ERROR
 from aider.run_cmd import run_cmd
 from aider.scrape import Scraper, install_playwright
 from aider.utils import is_image_file
 
 from .dump import dump  # noqa: F401
+
+ANY_GIT_ERROR: Tuple[Type[BaseException], ...] = tuple(REPO_ANY_GIT_ERROR)
 
 
 class SwitchCoder(Exception):
@@ -141,7 +144,7 @@ class Commands:
         from aider import coders
 
         ef = args.strip()
-        valid_formats = OrderedDict(
+        valid_formats: OrderedDict[str, str] = OrderedDict(
             sorted(
                 (
                     coder.edit_format,
@@ -152,7 +155,7 @@ class Commands:
             )
         )
 
-        show_formats = OrderedDict(
+        show_formats: OrderedDict[str, str] = OrderedDict(
             [
                 ("help", "Get help about using aider (usage, config, troubleshoot)."),
                 ("ask", "Ask questions about your code without making any changes."),
@@ -606,6 +609,7 @@ class Commands:
 
         local_head = self.coder.repo.repo.git.rev_parse("HEAD")
         current_branch = self.coder.repo.repo.active_branch.name
+        remote_head = None
         try:
             remote_head = self.coder.repo.repo.git.rev_parse(f"origin/{current_branch}")
             has_origin = True
@@ -631,7 +635,8 @@ class Commands:
                 unrestored.add(file_path)
 
         if unrestored:
-            self.io.tool_error(f"Error restoring {file_path}, aborting undo.")
+            failed_list = ", ".join(sorted(unrestored))
+            self.io.tool_error(f"Error restoring {failed_list}, aborting undo.")
             self.io.tool_output("Restored files:")
             for file in restored:
                 self.io.tool_output(f"  {file}")
@@ -710,7 +715,7 @@ class Commands:
         new_document = Document(after_command, cursor_position=len(after_command))
 
         def get_paths():
-            return [self.coder.root] if self.coder.root else None
+            return [self.coder.root] if self.coder.root else []
 
         path_completer = PathCompleter(
             get_paths=get_paths,
@@ -969,7 +974,7 @@ class Commands:
         combined_output = None
         try:
             args = "git " + args
-            env = dict(subprocess.os.environ)
+            env = dict(os.environ)
             env["GIT_EDITOR"] = "true"
             result = subprocess.run(
                 args,

@@ -15,15 +15,20 @@ aider_user_agent = f"Aider/{__version__} +{urls.website}"
 
 
 def check_env():
+    sync_playwright_func = None
     try:
         from playwright.sync_api import sync_playwright
 
+        sync_playwright_func = sync_playwright
         has_pip = True
     except ImportError:
         has_pip = False
 
+    if not sync_playwright_func:
+        return has_pip, False
+
     try:
-        with sync_playwright() as p:
+        with sync_playwright_func() as p:
             p.chromium.launch()
             has_chromium = True
     except Exception:

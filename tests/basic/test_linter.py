@@ -56,6 +56,7 @@ class TestLinter(unittest.TestCase):
 
         result = self.linter.run_cmd("test_cmd", "test_file.py", "code")
         self.assertIsNotNone(result)
+        assert result is not None
         self.assertIn("Error message", result.text)
 
     def test_run_cmd_with_special_chars(self):
@@ -77,6 +78,7 @@ class TestLinter(unittest.TestCase):
 
             # The result should contain the error message
             self.assertIsNotNone(result)
+            assert result is not None
             self.assertIn("Error message", result.text)
 
 

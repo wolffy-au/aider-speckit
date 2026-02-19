@@ -14,10 +14,10 @@ def cvt(s):
 def dump(*vals):
     # http://docs.python.org/library/traceback.html
     stack = traceback.extract_stack()
-    vars = stack[-2][3]
+    vars_line = stack[-2][3] or ""
 
     # strip away the call to dump()
-    vars = "(".join(vars.split("(")[1:])
+    vars = "(".join(vars_line.split("(")[1:])
     vars = ")".join(vars.split(")")[:-1])
 
     vals = [cvt(v) for v in vals]

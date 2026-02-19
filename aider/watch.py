@@ -5,7 +5,7 @@ from typing import Optional
 
 from grep_ast import TreeContext
 from pathspec import PathSpec
-from pathspec.patterns import GitWildMatchPattern
+from pathspec.patterns.gitwildmatch import GitWildMatchPattern
 from watchfiles import watch
 
 from aider.dump import dump  # noqa
@@ -116,7 +116,7 @@ class FileWatcher:
             comments, _, _ = self.get_ai_comments(str(path_abs))
             return bool(comments)
         except Exception:
-            return
+            return False
 
     def get_roots_to_watch(self):
         """Determine which root paths to watch based on gitignore rules"""
@@ -214,11 +214,13 @@ class FileWatcher:
             res = watch_code_prompt
         elif has_action == "?":
             res = watch_ask_prompt
+        else:
+            return ""
 
         # Refresh all AI comments from tracked files
         for fname in self.coder.abs_fnames:
             line_nums, comments, _action = self.get_ai_comments(fname)
-            if not line_nums:
+            if line_nums is None or comments is None:
                 continue
 
             code = self.io.read_text(fname)
@@ -305,10 +307,10 @@ def main():
     try:
         watcher.start()
         while True:
-            if changes := watcher.get_changes():
-                for file in sorted(changes.keys()):
+            if watcher.changed_files:
+                for file in sorted(watcher.changed_files):
                     print(file)
-                watcher.changed_files = None
+                watcher.changed_files.clear()
     except KeyboardInterrupt:
         print("\nStopped watching files")
         watcher.stop()

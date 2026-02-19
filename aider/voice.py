@@ -4,6 +4,7 @@ import queue
 import tempfile
 import time
 import warnings
+from typing import Any
 
 from prompt_toolkit.shortcuts import prompt
 
@@ -44,7 +45,7 @@ class Voice:
             print("Initializing sound device...")
             import sounddevice as sd
 
-            self.sd = sd
+            self.sd: Any = sd
 
             devices = sd.query_devices()
 
@@ -137,7 +138,11 @@ class Voice:
         except self.sd.PortAudioError as err:
             raise SoundDeviceError(f"Error accessing audio input device: {err}")
 
-        with sf.SoundFile(temp_wav, mode="x", samplerate=sample_rate, channels=1) as file:
+        sf_module = sf
+        if sf_module is None:
+            raise SoundDeviceError("soundfile is required for recording")
+
+        with sf_module.SoundFile(temp_wav, mode="x", samplerate=sample_rate, channels=1) as file:
             while not self.q.empty():
                 file.write(self.q.get())
 

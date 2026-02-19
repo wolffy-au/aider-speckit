@@ -1,6 +1,7 @@
 import difflib
 from itertools import groupby
 from pathlib import Path
+from typing import List, Literal, Optional, Tuple, Union, overload
 
 from ..dump import dump  # noqa: F401
 from .base_coder import Coder
@@ -49,24 +50,33 @@ class UnifiedDiffCoder(Coder):
     edit_format = "udiff"
     gpt_prompts = UnifiedDiffPrompts()
 
-    def get_edits(self):
+    def get_edits(
+        self,
+        mode: Literal["update", "diff"] = "update",
+    ) -> Union[List[Tuple[str, List[str]]], str]:
+        if mode == "diff":
+            return self.partial_response_content
+
         content = self.partial_response_content
 
         # might raise ValueError for malformed ORIG/UPD blocks
         raw_edits = list(find_diffs(content))
 
-        last_path = None
-        edits = []
+        last_path: Optional[str] = None
+        edits: List[Tuple[str, List[str]]] = []
         for path, hunk in raw_edits:
             if path:
                 last_path = path
+                current_path = path
+            elif last_path is None:
+                continue
             else:
-                path = last_path
-            edits.append((path, hunk))
+                current_path = last_path
+            edits.append((current_path, hunk))
 
         return edits
 
-    def apply_edits(self, edits):
+    def apply_edits(self, edits, dry_run: bool = False):
         seen = set()
         uniq = []
         for path, hunk in edits:
@@ -207,7 +217,10 @@ def flexi_just_search_and_replace(texts):
 
 
 def make_new_lines_explicit(content, hunk):
-    before, after = hunk_to_before_after(hunk)
+    before_lines, after_lines = hunk_to_before_after(hunk, lines=True)
+
+    before = "".join(before_lines)
+    after = "".join(after_lines)
 
     diff = diff_lines(before, content)
 
@@ -227,27 +240,39 @@ def make_new_lines_explicit(content, hunk):
     if len(new_before.strip()) < 10:
         return hunk
 
-    before = before.splitlines(keepends=True)
-    new_before = new_before.splitlines(keepends=True)
-    after = after.splitlines(keepends=True)
+    before_line_segments = before.splitlines(keepends=True)
+    new_before_line_segments = new_before.splitlines(keepends=True)
+    after_line_segments = after.splitlines(keepends=True)
 
-    if len(new_before) < len(before) * 0.66:
+    if len(new_before_line_segments) < len(before_line_segments) * 0.66:
         return hunk
 
-    new_hunk = difflib.unified_diff(new_before, after, n=max(len(new_before), len(after)))
+    new_hunk = difflib.unified_diff(
+        before_line_segments,
+        after_line_segments,
+        n=max(len(before_line_segments), len(after_line_segments)),
+    )
     new_hunk = list(new_hunk)[3:]
 
     return new_hunk
 
 
 def cleanup_pure_whitespace_lines(lines):
+    # Convert lines to string if needed
+    if isinstance(lines, list):
+        lines = "".join(lines)
     res = [
-        line if line.strip() else line[-(len(line) - len(line.rstrip("\r\n")))] for line in lines
+        line if line.strip() else line[-(len(line) - len(line.rstrip("\r\n")))]
+        for line in lines.splitlines(keepends=True)
     ]
     return res
 
 
 def normalize_hunk(hunk):
+    # Ensure hunk is a string if it's a list
+    if isinstance(hunk, list):
+        hunk = "".join(hunk)
+
     before, after = hunk_to_before_after(hunk, lines=True)
 
     before = cleanup_pure_whitespace_lines(before)
@@ -259,16 +284,20 @@ def normalize_hunk(hunk):
 
 
 def directly_apply_hunk(content, hunk):
+    # Ensure hunk is a string if it's a list
+    if isinstance(hunk, list):
+        hunk = "".join(hunk)
+
     before, after = hunk_to_before_after(hunk)
 
     if not before:
         return
 
-    before_lines, _ = hunk_to_before_after(hunk, lines=True)
-    before_lines = "".join([line.strip() for line in before_lines])
+    before_line_candidates, _ = hunk_to_before_after(hunk, lines=True)
+    before_line_candidates = [line.strip() for line in before_line_candidates]
 
     # Refuse to do a repeated search and replace on a tiny bit of non-whitespace context
-    if len(before_lines) < 10 and content.count(before) > 1:
+    if len("".join(before_line_candidates)) < 10 and content.count(before) > 1:
         return
 
     try:
@@ -335,6 +364,8 @@ def find_diffs(content):
 
 
 def process_fenced_block(lines, start_line_num):
+    # Initialize line_num to avoid "possibly unbound" error
+    line_num = start_line_num
     for line_num in range(start_line_num, len(lines)):
         line = lines[line_num]
         if line.startswith("```"):
@@ -400,30 +431,52 @@ def process_fenced_block(lines, start_line_num):
     return line_num + 1, edits
 
 
-def hunk_to_before_after(hunk, lines=False):
-    before = []
-    after = []
+@overload
+def hunk_to_before_after(
+    hunk: Union[str, List[str]],
+    lines: Literal[False] = False,
+) -> Tuple[str, str]:
+    ...
+
+
+@overload
+def hunk_to_before_after(
+    hunk: Union[str, List[str]],
+    lines: Literal[True],
+) -> Tuple[List[str], List[str]]:
+    ...
+
+
+def hunk_to_before_after(
+    hunk: Union[str, List[str]],
+    lines: bool = False,
+) -> Union[Tuple[str, str], Tuple[List[str], List[str]]]:
+    if isinstance(hunk, list):
+        hunk = "".join(hunk)
+
+    before: List[str] = []
+    after: List[str] = []
     op = " "
-    for line in hunk:
+    for line in hunk.splitlines(keepends=True):
         if len(line) < 2:
             op = " "
-            line = line
+            normalized = line
         else:
             op = line[0]
-            line = line[1:]
+            normalized = line[1:]
 
         if op == " ":
-            before.append(line)
-            after.append(line)
+            before.append(normalized)
+            after.append(normalized)
         elif op == "-":
-            before.append(line)
+            before.append(normalized)
         elif op == "+":
-            after.append(line)
+            after.append(normalized)
 
     if lines:
         return before, after
 
-    before = "".join(before)
-    after = "".join(after)
+    before_str = "".join(before)
+    after_str = "".join(after)
 
-    return before, after
+    return before_str, after_str

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List, Literal, Tuple, Union, overload
 
 from aider import diffs
 
@@ -19,7 +20,17 @@ class WholeFileCoder(Coder):
         except ValueError:
             return self.get_multi_response_content_in_progress()
 
-    def get_edits(self, mode="update"):
+    @overload
+    def get_edits(self, mode: Literal["update"]) -> List[Tuple[str, str, List[str]]]:
+        ...
+
+    @overload
+    def get_edits(self, mode: Literal["diff"]) -> str:
+        ...
+
+    def get_edits(
+        self, mode: Literal["update", "diff"] = "update"
+    ) -> Union[List[Tuple[str, str, List[str]]], str]:
         content = self.get_multi_response_content_in_progress()
 
         chat_files = self.get_inchat_relative_files()
@@ -121,7 +132,7 @@ class WholeFileCoder(Coder):
 
         return refined_edits
 
-    def apply_edits(self, edits):
+    def apply_edits(self, edits, dry_run: bool = False):
         for path, fname_source, new_lines in edits:
             full_path = self.abs_root_path(path)
             new_lines = "".join(new_lines)

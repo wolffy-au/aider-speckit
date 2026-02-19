@@ -1,7 +1,7 @@
 import pathlib
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from .base_coder import Coder
 from .patch_prompts import PatchPrompts
@@ -217,7 +217,17 @@ class PatchCoder(Coder):
     edit_format = "patch"
     gpt_prompts = PatchPrompts()
 
-    def get_edits(self) -> List[EditResult]:
+    def get_edits(self, mode: Literal["update", "diff"] = "update") -> Union[List[EditResult], str]:
+        """
+        Selects the edit processing strategy based on the requested mode.
+        """
+        if mode == "diff":
+            return ""
+        if mode == "update":
+            return self._get_update_edits()
+        raise ValueError(f"Unsupported edit mode: {mode}")
+
+    def _get_update_edits(self) -> List[EditResult]:
         """
         Parses the LLM response content (containing the patch) into a list of
         tuples, where each tuple contains the file path and the PatchAction object.
@@ -546,17 +556,19 @@ class PatchCoder(Coder):
         action = PatchAction(type=ActionType.ADD, path="", new_content="\n".join(added_lines))
         return action, index
 
-    def apply_edits(self, edits: List[PatchAction]):
+    def apply_edits(self, edits, dry_run: bool = False):
         """
         Applies the parsed PatchActions to the corresponding files.
         """
+        if dry_run:
+            return
         if not edits:
             return
 
         # Group edits by original path? Not strictly needed if processed sequentially.
 
         # Edits are now List[Tuple[str, PatchAction]]
-        for _path_tuple_element, action in edits:
+        for action in edits:
             # action is the PatchAction object
             # action.path is the canonical path within the action logic
             full_path = self.abs_root_path(action.path)

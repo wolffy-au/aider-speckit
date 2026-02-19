@@ -1,6 +1,7 @@
 import importlib
 import os
 import warnings
+from typing import Any
 
 from aider.dump import dump  # noqa: F401
 
@@ -19,7 +20,7 @@ VERBOSE = False
 
 
 class LazyLiteLLM:
-    _lazy_module = None
+    _lazy_module: Any | None = None
 
     def __getattr__(self, name):
         if name == "_lazy_module":
@@ -36,12 +37,12 @@ class LazyLiteLLM:
 
         self._lazy_module = importlib.import_module("litellm")
 
-        self._lazy_module.suppress_debug_info = True
-        self._lazy_module.set_verbose = False
-        self._lazy_module.drop_params = True
+        setattr(self._lazy_module, "suppress_debug_info", True)
+        setattr(self._lazy_module, "set_verbose", False)
+        setattr(self._lazy_module, "drop_params", True)
         self._lazy_module._logging._disable_debugging()
 
 
 litellm = LazyLiteLLM()
 
-__all__ = [litellm]
+__all__ = ["litellm"]

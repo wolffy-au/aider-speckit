@@ -71,10 +71,13 @@ def run_cmd_subprocess(command, verbose=False, cwd=None, encoding=sys.stdout.enc
             universal_newlines=True,
             cwd=cwd,
         )
+        assert process.stdout is not None
+
+        stdout = process.stdout
 
         output = []
         while True:
-            chunk = process.stdout.read(1)
+            chunk = stdout.read(1)
             if not chunk:
                 break
             print(chunk, end="", flush=True)  # Print the chunk in real-time

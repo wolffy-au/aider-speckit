@@ -7,6 +7,8 @@ from .dump import dump  # noqa: F401
 
 class DotEnvFormatter(argparse.HelpFormatter):
     def start_section(self, heading):
+        if heading is None:
+            heading = ""
         res = "\n\n"
         res += "#" * (len(heading) + 3)
         res += f"\n# {heading}"
@@ -42,8 +44,10 @@ class DotEnvFormatter(argparse.HelpFormatter):
         if not action.option_strings:
             return ""
 
-        if not action.env_var:
-            return
+        # Handle the case where env_var might not exist
+        env_var = getattr(action, "env_var", None)
+        if not env_var:
+            return ""
 
         parts = [""]
 
@@ -62,8 +66,7 @@ class DotEnvFormatter(argparse.HelpFormatter):
         if action.help:
             parts.append(f"## {action.help}")
 
-        if action.env_var:
-            env_var = action.env_var
+        if env_var:
             if default:
                 parts.append(f"#{env_var}={default}\n")
             else:
@@ -80,6 +83,8 @@ class DotEnvFormatter(argparse.HelpFormatter):
 
 class YamlHelpFormatter(argparse.HelpFormatter):
     def start_section(self, heading):
+        if heading is None:
+            heading = ""
         res = "\n\n"
         res += "#" * (len(heading) + 3)
         res += f"\n# {heading}"
@@ -127,10 +132,21 @@ class YamlHelpFormatter(argparse.HelpFormatter):
         if action.help:
             parts.append(f"## {action.help}")
 
-        for switch in action.option_strings:
-            if switch.startswith("--"):
+        # Find the long option name
+        switch = None
+        for option_string in action.option_strings:
+            if option_string.startswith("--"):
+                switch = option_string.lstrip("-")
                 break
-        switch = switch.lstrip("-")
+
+        # If no long option found, use the first one
+        if not switch and action.option_strings:
+            switch = action.option_strings[0].lstrip("-")
+
+        # Ensure switch is always defined - this should never happen in practice
+        # but added for defensive programming
+        if not switch:
+            switch = "unknown_option"
 
         if isinstance(action, argparse._StoreTrueAction):
             default = False
@@ -160,9 +176,6 @@ class YamlHelpFormatter(argparse.HelpFormatter):
             else:
                 parts.append(f"#{switch}: xxx\n")
 
-        ###
-        # parts.append(str(action))
-
         return "\n".join(parts) + "\n"
 
     def _format_action_invocation(self, action):
@@ -174,6 +187,8 @@ class YamlHelpFormatter(argparse.HelpFormatter):
 
 class MarkdownHelpFormatter(argparse.HelpFormatter):
     def start_section(self, heading):
+        if heading is None:
+            heading = ""
         super().start_section(f"## {heading}")
 
     def _format_usage(self, usage, actions, groups, prefix):
@@ -194,9 +209,21 @@ class MarkdownHelpFormatter(argparse.HelpFormatter):
         if not metavar and isinstance(action, argparse._StoreAction):
             metavar = "VALUE"
 
-        for switch in action.option_strings:
-            if switch.startswith("--"):
+        # Find the long option name
+        switch = None
+        for option_string in action.option_strings:
+            if option_string.startswith("--"):
+                switch = option_string.lstrip("-")
                 break
+
+        # If no long option found, use the first one
+        if not switch and action.option_strings:
+            switch = action.option_strings[0].lstrip("-")
+
+        # Ensure switch is always defined - this should never happen in practice
+        # but added for defensive programming
+        if not switch:
+            switch = "unknown_option"
 
         if metavar:
             parts.append(f"### `{switch} {metavar}`")
@@ -208,16 +235,18 @@ class MarkdownHelpFormatter(argparse.HelpFormatter):
         if action.default not in (argparse.SUPPRESS, None):
             parts.append(f"Default: {action.default}  ")
 
-        if action.env_var:
-            parts.append(f"Environment variable: `{action.env_var}`  ")
+        # Handle env_var attribute access
+        env_var = getattr(action, "env_var", None)
+        if env_var:
+            parts.append(f"Environment variable: `{env_var}`  ")
 
         if len(action.option_strings) > 1:
             parts.append("Aliases:")
-            for switch in action.option_strings:
+            for option_string in action.option_strings:
                 if metavar:
-                    parts.append(f"  - `{switch} {metavar}`")
+                    parts.append(f"  - `{option_string} {metavar}`")
                 else:
-                    parts.append(f"  - `{switch}`")
+                    parts.append(f"  - `{option_string}`")
 
         return "\n".join(parts) + "\n"
 

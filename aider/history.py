@@ -12,6 +12,39 @@ class ChatSummary:
         self.max_tokens = max_tokens
         self.token_count = self.models[0].token_count
 
+    def summarize_chat_history_markdown(self, markdown_text: str):
+        messages = self._parse_chat_history_markdown(markdown_text)
+        if not messages:
+            return []
+        return self.summarize(messages)
+
+    def _parse_chat_history_markdown(self, markdown_text: str):
+        messages = []
+        current_role = None
+        buffer = []
+        for line in markdown_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                heading_content = stripped.lstrip("#").strip()
+                if not heading_content:
+                    continue
+                role_candidate = heading_content.split()[0].upper()
+                if role_candidate in ("USER", "ASSISTANT", "SYSTEM"):
+                    if current_role and buffer:
+                        content = "".join(buffer).rstrip()
+                        if content:
+                            messages.append(dict(role=current_role, content=content))
+                    current_role = role_candidate.lower()
+                    buffer = []
+                    continue
+            if current_role:
+                buffer.append(line + "\n")
+        if current_role and buffer:
+            content = "".join(buffer).rstrip()
+            if content:
+                messages.append(dict(role=current_role, content=content))
+        return messages
+
     def too_big(self, messages):
         sized = self.tokenize(messages)
         total = sum(tokens for tokens, _msg in sized)

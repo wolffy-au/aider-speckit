@@ -62,10 +62,10 @@ class TestChatSummary(TestCase):
 
     def test_summarize(self):
         N = 100
-        messages = [None] * (2 * N)
+        messages: list[dict[str, str]] = []
         for i in range(N):
-            messages[2 * i] = {"role": "user", "content": f"Message {i}"}
-            messages[2 * i + 1] = {"role": "assistant", "content": f"Response {i}"}
+            messages.append({"role": "user", "content": f"Message {i}"})
+            messages.append({"role": "assistant", "content": f"Response {i}"})
 
         with mock.patch.object(
             self.chat_summary,

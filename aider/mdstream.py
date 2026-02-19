@@ -2,6 +2,7 @@
 
 import io
 import time
+from typing import Optional
 
 from rich import box
 from rich.console import Console
@@ -97,7 +98,7 @@ class MarkdownStream:
     in new markdown text.
     """
 
-    live = None  # Rich Live display instance
+    live: Optional[Live] = None  # Rich Live display instance
     when = 0  # Timestamp of last update
     min_delay = 1.0 / 20  # Minimum time between updates (20fps)
     live_window = 6  # Number of lines to keep visible at bottom during streaming
@@ -169,6 +170,10 @@ class MarkdownStream:
             self.live.start()
             self._live_started = True
 
+        live = self.live
+        if live is None:
+            return
+
         now = time.time()
         # Throttle updates to maintain smooth rendering
         if not final and now - self.when < self.min_delay:
@@ -204,15 +209,15 @@ class MarkdownStream:
             show = lines[num_printed:num_lines]
             show = "".join(show)
             show = Text.from_ansi(show)
-            self.live.console.print(show)  # to the console above the live area
+            live.console.print(show)  # to the console above the live area
 
             # Update our record of printed lines
             self.printed = lines[:num_lines]
 
         # Handle final update cleanup
         if final:
-            self.live.update(Text(""))
-            self.live.stop()
+            live.update(Text(""))
+            live.stop()
             self.live = None
             return
 
@@ -220,7 +225,7 @@ class MarkdownStream:
         rest = lines[num_lines:]
         rest = "".join(rest)
         rest = Text.from_ansi(rest)
-        self.live.update(rest)
+        live.update(rest)
 
     def find_minimal_suffix(self, text, match_lines=50):
         """
