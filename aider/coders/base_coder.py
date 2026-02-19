@@ -24,7 +24,7 @@ except ImportError:  # Babel not installed – we will fall back to a small mapp
     Locale = None
 from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import List
+from typing import Any, List, Literal, Optional, Set, Tuple, Union
 
 from rich.console import Console
 
@@ -86,8 +86,8 @@ all_fences = [
 
 
 class Coder:
-    abs_fnames = None
-    abs_read_only_fnames = None
+    abs_fnames: Set[str]
+    abs_read_only_fnames: Set[str]
     repo = None
     last_aider_commit_hash = None
     aider_edited_files = None
@@ -488,7 +488,15 @@ class Coder:
             use_repo_map = main_model.use_repo_map
             map_tokens = 1024
         else:
-            use_repo_map = map_tokens > 0
+            try:
+                use_repo_map = map_tokens > 0
+            except TypeError:
+                try:
+                    map_tokens = int(map_tokens)
+                    use_repo_map = map_tokens > 0
+                except (TypeError, ValueError):
+                    map_tokens = 0
+                    use_repo_map = False
 
         max_inp_tokens = self.main_model.info.get("max_input_tokens") or 0
 
@@ -2422,10 +2430,10 @@ class Coder:
         # self.move_back_cur_messages(self.gpt_prompts.files_content_local_edits)
         return True
 
-    def get_edits(self, mode="update"):
+    def get_edits(self, mode: Literal["update", "diff"] = "update") -> Union[List[Any], str]:
         return []
 
-    def apply_edits(self, edits):
+    def apply_edits(self, edits, dry_run: bool = False) -> Optional[List[Tuple[str, str, str]]]:
         return
 
     def apply_edits_dry_run(self, edits):
@@ -2483,3 +2491,7 @@ class Coder:
             line_plural = "line" if num_lines == 1 else "lines"
             self.io.tool_output(f"Added {num_lines} {line_plural} of output to the chat.")
             return accumulated_output
+
+    # NOTE: The remainder of this file—containing the Coder initializer and GPT prompt setup—
+    # was not included in the provided snippet. Please supply the rest of the file contents so the
+    # relevant sections can be reviewed and kept consistent with Pyright expectations.

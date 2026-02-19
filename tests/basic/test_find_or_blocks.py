@@ -41,9 +41,13 @@ def process_markdown(filename, fh):
         # Get the content (everything after the header)
         content = "".join(section.splitlines(keepends=True)[1:])
 
-        for fence in all_fences[1:] + all_fences[:1]:
-            if "\n" + fence[0] in content:
+        fence = None
+        for candidate in all_fences[1:] + all_fences[:1]:
+            if "\n" + candidate[0] in content:
+                fence = candidate
                 break
+        if fence is None:
+            fence = all_fences[0]
 
         # Process the content with find_original_update_blocks
         try:

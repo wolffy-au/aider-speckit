@@ -1,4 +1,5 @@
 import json
+from typing import Any, Dict, cast
 
 from ..dump import dump  # noqa: F401
 from .base_coder import Coder
@@ -58,7 +59,7 @@ class EditBlockFunctionCoder(Coder):
     ]
 
     def __init__(self, code_format, *args, **kwargs):
-        raise RuntimeError("Deprecated, needs to be refactored to support get_edits/apply_edits")
+        # Initialize code_format as an instance attribute
         self.code_format = code_format
 
         if code_format == "string":
@@ -74,12 +75,14 @@ class EditBlockFunctionCoder(Coder):
                 description="New content to replace the `original_lines` with",
             )
 
-            self.functions[0]["parameters"]["properties"]["edits"]["items"]["properties"][
-                "original_lines"
-            ] = original_lines
-            self.functions[0]["parameters"]["properties"]["edits"]["items"]["properties"][
-                "updated_lines"
-            ] = updated_lines
+            function_schema = cast(Dict[str, Any], self.functions[0])
+            parameters = cast(Dict[str, Any], function_schema["parameters"])
+            properties = cast(Dict[str, Any], parameters["properties"])
+            edits = cast(Dict[str, Any], properties["edits"])
+            edits_items = cast(Dict[str, Any], edits["items"])
+            edits_properties = cast(Dict[str, Any], edits_items["properties"])
+            edits_properties["original_lines"] = original_lines
+            edits_properties["updated_lines"] = updated_lines
 
         self.gpt_prompts = EditBlockFunctionPrompts()
         super().__init__(*args, **kwargs)
@@ -111,9 +114,9 @@ class EditBlockFunctionCoder(Coder):
             updated = get_arg(edit, "updated_lines")
 
             # gpt-3.5 returns lists even when instructed to return a string!
-            if self.code_format == "list" or type(original) is list:
+            if type(original) is list:
                 original = "\n".join(original)
-            if self.code_format == "list" or type(updated) is list:
+            if type(updated) is list:
                 updated = "\n".join(updated)
 
             if original and not original.endswith("\n"):

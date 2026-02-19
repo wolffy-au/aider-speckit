@@ -2,11 +2,14 @@
 
 import sys
 from pathlib import Path
+from typing import List, Optional, Tuple
 
 try:
-    import git
+    from git import Repo
+    from git import exc as git_exc
 except ImportError:
-    git = None
+    Repo = None
+    git_exc = None
 
 from diff_match_patch import diff_match_patch
 from tqdm import tqdm
@@ -196,7 +199,7 @@ def map_patches(texts, patches, debug):
     dmp = diff_match_patch()
     dmp.Diff_Timeout = 5
 
-    diff_s_o = dmp.diff_main(search_text, original_text)
+    diff_s_o = dmp.diff_main(search_text, original_text, False)
     # diff_r_s = dmp.diff_main(replace_text, search_text)
 
     # dmp.diff_cleanupSemantic(diff_s_o)
@@ -278,7 +281,7 @@ def dmp_apply(texts, remap=True):
         dmp.Match_MaxBits = 32
         dmp.Patch_Margin = 8
 
-    diff = dmp.diff_main(search_text, replace_text, None)
+    diff = dmp.diff_main(search_text, replace_text, False)
     dmp.diff_cleanupSemantic(diff)
     dmp.diff_cleanupEfficiency(diff)
 
@@ -369,7 +372,7 @@ def dmp_lines_apply(texts):
     assert len(replace_lines) == replace_num
     assert len(original_lines) == original_num
 
-    diff_lines = dmp.diff_main(search_lines, replace_lines, None)
+    diff_lines = dmp.diff_main(search_lines, replace_lines, False)
     dmp.diff_cleanupSemantic(diff_lines)
     dmp.diff_cleanupEfficiency(diff_lines)
 
@@ -409,7 +412,7 @@ def diff_lines(search_text, replace_text):
     # dmp.Diff_EditCost = 16
     search_lines, replace_lines, mapping = dmp.diff_linesToChars(search_text, replace_text)
 
-    diff_lines = dmp.diff_main(search_lines, replace_lines, None)
+    diff_lines = dmp.diff_main(search_lines, replace_lines, False)
     dmp.diff_cleanupSemantic(diff_lines)
     dmp.diff_cleanupEfficiency(diff_lines)
 
@@ -446,10 +449,13 @@ def search_and_replace(texts):
 
 
 def git_cherry_pick_osr_onto_o(texts):
+    if Repo is None or git_exc is None:
+        return
+
     search_text, replace_text, original_text = texts
 
     with GitTemporaryDirectory() as dname:
-        repo = git.Repo(dname)
+        repo = Repo(dname)
 
         fname = Path(dname) / "file.txt"
 
@@ -474,7 +480,7 @@ def git_cherry_pick_osr_onto_o(texts):
         # cherry pick R onto original
         try:
             repo.git.cherry_pick(replace_hash, "--minimal")
-        except (git.exc.ODBError, git.exc.GitError):
+        except (git_exc.GitError, git_exc.GitCommandError):
             # merge conflicts!
             return
 
@@ -483,10 +489,13 @@ def git_cherry_pick_osr_onto_o(texts):
 
 
 def git_cherry_pick_sr_onto_so(texts):
+    if Repo is None or git_exc is None:
+        return
+
     search_text, replace_text, original_text = texts
 
     with GitTemporaryDirectory() as dname:
-        repo = git.Repo(dname)
+        repo = Repo(dname)
 
         fname = Path(dname) / "file.txt"
 
@@ -512,7 +521,7 @@ def git_cherry_pick_sr_onto_so(texts):
         # cherry pick replace onto original
         try:
             repo.git.cherry_pick(replace_hash, "--minimal")
-        except (git.exc.ODBError, git.exc.GitError):
+        except (git_exc.GitError, git_exc.GitCommandError):
             # merge conflicts!
             return
 
@@ -600,10 +609,8 @@ def try_strategy(texts, strategy, preproc):
         res = reverse_lines(res)
 
     if res and preproc_relative_indent:
-        try:
+        if ri is not None:
             res = ri.make_absolute(res)
-        except ValueError:
-            return
 
     return res
 
@@ -619,7 +626,7 @@ def read_text(fname):
     return text
 
 
-def proc(dname):
+def proc(dname) -> Optional[List[Tuple[str, str]]]:
     dname = Path(dname)
 
     try:
@@ -668,13 +675,13 @@ def proc(dname):
             res = try_strategy(texts, strategy, preproc)
             patched[method] = res
 
-    results = []
+    results: List[Tuple[str, str]] = []
     for method, res in patched.items():
         out_fname = dname / f"original.{method}"
         if out_fname.exists():
             out_fname.unlink()
 
-        if res:
+        if res is not None:
             out_fname.write_text(res)
 
             correct = (dname / "correct").read_text()
@@ -690,7 +697,7 @@ def proc(dname):
     return results
 
 
-def colorize_result(result):
+def colorize_result(result: str) -> str:
     colors = {
         "pass": "\033[102;30mpass\033[0m",  # Green background, black text
         "WRONG": "\033[101;30mWRONG\033[0m",  # Red background, black text
@@ -704,6 +711,8 @@ def main(dnames):
     for dname in tqdm(dnames):
         dname = Path(dname)
         results = proc(dname)
+        if results is None:
+            continue
         for method, res in results:
             all_results.append((dname, method, res))
             # print(dname, method, colorize_result(res))
@@ -727,7 +736,9 @@ def main(dnames):
     directories.sort(key=lambda dname: pass_counts[dname], reverse=True)
 
     # Create a results matrix
-    results_matrix = {dname: {method: "" for method in methods} for dname in directories}
+    results_matrix: dict[str, dict[str, str]] = {
+        dname: {method: "" for method in methods} for dname in directories
+    }
 
     # Populate the results matrix
     for dname, method, res in all_results:

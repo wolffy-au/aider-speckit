@@ -4,8 +4,12 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional
 
 import oslex
+
+if TYPE_CHECKING:
+    import git as git_module
 
 from aider.dump import dump  # noqa: F401
 from aider.waiting import Spinner
@@ -20,19 +24,19 @@ class IgnorantTemporaryDirectory:
         else:
             self.temp_dir = tempfile.TemporaryDirectory()
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         return self.temp_dir.__enter__()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.cleanup()
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         try:
             self.temp_dir.cleanup()
         except (OSError, PermissionError, RecursionError):
             pass  # Ignore errors (Windows and potential recursion)
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
         return getattr(self.temp_dir, item)
 
 
@@ -45,12 +49,12 @@ class ChdirTemporaryDirectory(IgnorantTemporaryDirectory):
 
         super().__init__()
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         res = super().__enter__()
         os.chdir(Path(self.temp_dir.name).resolve())
         return res
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.cwd:
             try:
                 os.chdir(self.cwd)
@@ -60,7 +64,7 @@ class ChdirTemporaryDirectory(IgnorantTemporaryDirectory):
 
 
 class GitTemporaryDirectory(ChdirTemporaryDirectory):
-    def __enter__(self):
+    def __enter__(self) -> str:
         dname = super().__enter__()
         self.repo = make_repo(dname)
         return dname
@@ -70,7 +74,7 @@ class GitTemporaryDirectory(ChdirTemporaryDirectory):
         super().__exit__(exc_type, exc_val, exc_tb)
 
 
-def make_repo(path=None):
+def make_repo(path: Optional[str] = None) -> "git_module.Repo":
     import git
 
     if not path:
@@ -221,8 +225,9 @@ def run_install(cmd):
     except Exception:
         pass  # Continue even if ensurepip fails
 
+    output = ""
     try:
-        output = []
+        output_chars = []
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -233,19 +238,22 @@ def run_install(cmd):
             encoding=sys.stdout.encoding,
             errors="replace",
         )
+        stdout = process.stdout
+        if stdout is None:
+            raise RuntimeError("Failed to capture process stdout")
         spinner = Spinner("Installing...")
 
         while True:
-            char = process.stdout.read(1)
+            char = stdout.read(1)
             if not char:
                 break
 
-            output.append(char)
+            output_chars.append(char)
             spinner.step()
 
         spinner.end()
+        output = "".join(output_chars)
         return_code = process.wait()
-        output = "".join(output)
 
         if return_code == 0:
             print("Installation complete.")

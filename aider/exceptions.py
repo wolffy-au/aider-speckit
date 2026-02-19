@@ -1,13 +1,14 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from aider.dump import dump  # noqa: F401
 
 
 @dataclass
 class ExInfo:
-    name: str
-    retry: bool
-    description: str
+    name: Optional[str]
+    retry: Optional[bool]
+    description: Optional[str]
 
 
 EXCEPTIONS = [
@@ -81,7 +82,10 @@ class LiteLLMExceptions:
         """Return the ExInfo for a given exception instance"""
         import litellm
 
-        if ex.__class__ is litellm.APIConnectionError:
+        api_connection_error = getattr(litellm, "APIConnectionError")
+        api_error = getattr(litellm, "APIError")
+
+        if ex.__class__ is api_connection_error:
             if "boto3" in str(ex):
                 return ExInfo("APIConnectionError", False, "You need to: pip install boto3")
             if "OpenrouterException" in str(ex) and "'choices'" in str(ex):
@@ -95,7 +99,7 @@ class LiteLLMExceptions:
                 )
 
         # Check for specific non-retryable APIError cases like insufficient credits
-        if ex.__class__ is litellm.APIError:
+        if ex.__class__ is api_error:
             err_str = str(ex).lower()
             if "insufficient credits" in err_str and '"code":402' in err_str:
                 return ExInfo(

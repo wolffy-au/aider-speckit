@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import warnings
+from importlib.abc import Traversable
 from pathlib import Path
 
 import importlib_resources
@@ -30,13 +31,21 @@ def install_help_extra(io):
     return res
 
 
+def _iter_markdown_files(directory: Traversable):
+    for entry in directory.iterdir():
+        if entry.is_file() and entry.name.lower().endswith(".md"):
+            yield entry
+        elif entry.is_dir():
+            yield from _iter_markdown_files(entry)
+
+
 def get_package_files():
-    for path in importlib_resources.files("aider.website").iterdir():
+    root = importlib_resources.files("aider.website")
+    for path in root.iterdir():
         if path.is_file():
             yield path
         elif path.is_dir():
-            for subpath in path.rglob("*.md"):
-                yield subpath
+            yield from _iter_markdown_files(path)
 
 
 def fname_to_url(filepath):
@@ -96,7 +105,7 @@ def get_index():
     try:
         if dname.exists():
             storage_context = StorageContext.from_defaults(
-                persist_dir=dname,
+                persist_dir=str(dname),
             )
             index = load_index_from_storage(storage_context)
     except (OSError, json.JSONDecodeError):
@@ -112,9 +121,7 @@ def get_index():
                 continue
 
             doc = Document(
-                text=importlib_resources.files("aider.website")
-                .joinpath(fname)
-                .read_text(encoding="utf-8"),
+                text=fname.read_text(encoding="utf-8"),
                 metadata=dict(
                     filename=fname.name,
                     extension=fname.suffix,

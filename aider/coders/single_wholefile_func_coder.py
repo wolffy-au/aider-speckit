@@ -1,3 +1,5 @@
+from typing import List, Literal, Tuple, Union
+
 from aider import diffs
 
 from ..dump import dump  # noqa: F401
@@ -38,7 +40,7 @@ class SingleWholeFileFunctionCoder(Coder):
         self.gpt_prompts = SingleWholeFileFunctionPrompts()
         super().__init__(*args, **kwargs)
 
-    def add_assistant_reply_to_cur_messages(self, edited):
+    def add_assistant_reply_to_cur_messages(self, edited=None):
         if edited:
             self.cur_messages += [
                 dict(role="assistant", content=self.gpt_prompts.redacted_edit_message)
@@ -84,7 +86,12 @@ class SingleWholeFileFunctionCoder(Coder):
 
         return "\n".join(show_diff)
 
-    def get_edits(self):
+    def get_edits(
+        self, mode: Literal["update", "diff"] = "update"
+    ) -> Union[List[Tuple[str, str]], str]:
+        if mode == "diff":
+            return ""
+
         chat_files = self.get_inchat_relative_files()
         assert len(chat_files) == 1, chat_files
 
@@ -96,7 +103,9 @@ class SingleWholeFileFunctionCoder(Coder):
         dump(res)
         return [res]
 
-    def apply_edits(self, edits):
+    def apply_edits(self, edits, dry_run: bool = False):
         for path, content in edits:
             full_path = self.abs_root_path(path)
+            if dry_run:
+                continue
             self.io.write_text(full_path, content)

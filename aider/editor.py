@@ -54,10 +54,8 @@ def write_temp_file(
     :return: Path to the created temporary file
     :raises: OSError if file creation or writing fails
     """
-    kwargs = {"prefix": prefix, "dir": dir}
-    if suffix:
-        kwargs["suffix"] = f".{suffix}"
-    fd, filepath = tempfile.mkstemp(**kwargs)
+    temp_suffix = f".{suffix}" if suffix else None
+    fd, filepath = tempfile.mkstemp(suffix=temp_suffix, prefix=prefix, dir=dir)
     try:
         with os.fdopen(fd, "w") as f:
             f.write(input_data)

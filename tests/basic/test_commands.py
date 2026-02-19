@@ -416,9 +416,9 @@ class TestCommands(TestCase):
         # this should add one.py
         commands.cmd_add("*.py")
 
-        self.assertIn(filenames[0], coder.abs_fnames)
-        self.assertNotIn(filenames[1], coder.abs_fnames)
-        self.assertIn(filenames[2], coder.abs_fnames)
+        self.assertIn(filenames[0], coder.abs_fnames or set())
+        self.assertNotIn(filenames[1], coder.abs_fnames or set())
+        self.assertIn(filenames[2], coder.abs_fnames or set())
 
     def test_cmd_add_from_subdir_again(self):
         with GitTemporaryDirectory():
@@ -1724,16 +1724,19 @@ class TestCommands(TestCase):
             commands.cmd_model("gpt-4")
 
         # Check that the SwitchCoder exception contains the correct model configuration
-        self.assertEqual(context.exception.kwargs.get("main_model").name, "gpt-4")
+        main_model = context.exception.kwargs["main_model"]
+        editor_model = main_model.editor_model
+        weak_model = main_model.weak_model
+        self.assertIsNotNone(editor_model)
+        self.assertIsNotNone(weak_model)
+        self.assertEqual(main_model.name, "gpt-4")
         self.assertEqual(
-            context.exception.kwargs.get("main_model").editor_model.name,
+            editor_model.name,
             self.GPT35.editor_model.name,
         )
-        self.assertEqual(
-            context.exception.kwargs.get("main_model").weak_model.name, self.GPT35.weak_model.name
-        )
+        self.assertEqual(weak_model.name, self.GPT35.weak_model.name)
         # Check that the edit format is updated to the new model's default
-        self.assertEqual(context.exception.kwargs.get("edit_format"), "diff")
+        self.assertEqual(context.exception.kwargs["edit_format"], "diff")
 
     def test_cmd_model_preserves_explicit_edit_format(self):
         io = InputOutput(pretty=False, fancy_input=False, yes=True)
@@ -1750,9 +1753,10 @@ class TestCommands(TestCase):
                 commands.cmd_model("gpt-4")
 
         # Check that the SwitchCoder exception contains the correct model configuration
-        self.assertEqual(context.exception.kwargs.get("main_model").name, "gpt-4")
+        main_model = context.exception.kwargs["main_model"]
+        self.assertEqual(main_model.name, "gpt-4")
         # Check that the edit format is preserved
-        self.assertEqual(context.exception.kwargs.get("edit_format"), "udiff")
+        self.assertEqual(context.exception.kwargs["edit_format"], "udiff")
 
     def test_cmd_editor_model(self):
         io = InputOutput(pretty=False, fancy_input=False, yes=True)
@@ -1764,11 +1768,14 @@ class TestCommands(TestCase):
             commands.cmd_editor_model("gpt-4")
 
         # Check that the SwitchCoder exception contains the correct model configuration
-        self.assertEqual(context.exception.kwargs.get("main_model").name, self.GPT35.name)
-        self.assertEqual(context.exception.kwargs.get("main_model").editor_model.name, "gpt-4")
-        self.assertEqual(
-            context.exception.kwargs.get("main_model").weak_model.name, self.GPT35.weak_model.name
-        )
+        main_model = context.exception.kwargs["main_model"]
+        editor_model = main_model.editor_model
+        weak_model = main_model.weak_model
+        self.assertIsNotNone(editor_model)
+        self.assertIsNotNone(weak_model)
+        self.assertEqual(main_model.name, self.GPT35.name)
+        self.assertEqual(editor_model.name, "gpt-4")
+        self.assertEqual(weak_model.name, self.GPT35.weak_model.name)
 
     def test_cmd_weak_model(self):
         io = InputOutput(pretty=False, fancy_input=False, yes=True)
@@ -1780,12 +1787,17 @@ class TestCommands(TestCase):
             commands.cmd_weak_model("gpt-4")
 
         # Check that the SwitchCoder exception contains the correct model configuration
-        self.assertEqual(context.exception.kwargs.get("main_model").name, self.GPT35.name)
+        main_model = context.exception.kwargs["main_model"]
+        editor_model = main_model.editor_model
+        weak_model = main_model.weak_model
+        self.assertIsNotNone(editor_model)
+        self.assertIsNotNone(weak_model)
+        self.assertEqual(main_model.name, self.GPT35.name)
         self.assertEqual(
-            context.exception.kwargs.get("main_model").editor_model.name,
+            editor_model.name,
             self.GPT35.editor_model.name,
         )
-        self.assertEqual(context.exception.kwargs.get("main_model").weak_model.name, "gpt-4")
+        self.assertEqual(weak_model.name, "gpt-4")
 
     def test_cmd_model_updates_default_edit_format(self):
         io = InputOutput(pretty=False, fancy_input=False, yes=True)
@@ -1802,9 +1814,10 @@ class TestCommands(TestCase):
                 commands.cmd_model("gpt-4")
 
         # Check that the SwitchCoder exception contains the correct model configuration
-        self.assertEqual(context.exception.kwargs.get("main_model").name, "gpt-4")
+        main_model = context.exception.kwargs["main_model"]
+        self.assertEqual(main_model.name, "gpt-4")
         # Check that the edit format is updated to the new model's default
-        self.assertEqual(context.exception.kwargs.get("edit_format"), "diff")
+        self.assertEqual(context.exception.kwargs["edit_format"], "diff")
 
     def test_cmd_ask(self):
         io = InputOutput(pretty=False, fancy_input=False, yes=True)
@@ -1855,7 +1868,7 @@ class TestCommands(TestCase):
                 self.assertEqual(Path(called_arg).name, filename)
 
             # Verify that the file is still dirty after linting
-            self.assertTrue(repo.is_dirty(filename))
+            self.assertTrue(repo.is_dirty(path=filename))
 
             del coder
             del commands

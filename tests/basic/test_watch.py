@@ -27,6 +27,7 @@ def test_gitignore_patterns():
 
     gitignores = [tmp_gitignore]
     spec = load_gitignores(gitignores)
+    assert spec is not None
 
     # Test built-in patterns
     assert spec.match_file(".aider.conf")
@@ -122,6 +123,8 @@ def test_ai_comment_pattern():
     # Test Python fixture
     py_path = fixtures_dir / "watch.py"
     py_lines, py_comments, py_has_bang = watcher.get_ai_comments(str(py_path))
+    assert py_lines is not None
+    assert py_comments is not None
 
     # Count unique AI comments (excluding duplicates and variations with extra spaces)
     unique_py_comments = set(comment.strip().lower() for comment in py_comments)
@@ -136,6 +139,8 @@ def test_ai_comment_pattern():
     # Test JavaScript fixture
     js_path = fixtures_dir / "watch.js"
     js_lines, js_comments, js_has_bang = watcher.get_ai_comments(str(js_path))
+    assert js_lines is not None
+    assert js_comments is not None
     js_expected = 16
     assert (
         len(js_lines) == js_expected
@@ -147,6 +152,8 @@ def test_ai_comment_pattern():
     question_js_lines, question_js_comments, question_js_has_bang = watcher.get_ai_comments(
         str(question_js_path)
     )
+    assert question_js_lines is not None
+    assert question_js_comments is not None
     question_js_expected = 6
     assert len(question_js_lines) == question_js_expected, (
         f"Expected {question_js_expected} AI comments in watch_question.js fixture, found"
@@ -159,6 +166,8 @@ def test_ai_comment_pattern():
     # Test Lisp fixture
     lisp_path = fixtures_dir / "watch.lisp"
     lisp_lines, lisp_comments, lisp_has_bang = watcher.get_ai_comments(str(lisp_path))
+    assert lisp_lines is not None
+    assert lisp_comments is not None
     lisp_expected = 7
     assert (
         len(lisp_lines) == lisp_expected

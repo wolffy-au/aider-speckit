@@ -83,6 +83,7 @@ def diff_partial_update(lines_orig, lines_updated, final=False, fname=None):
     if not diff.endswith("\n"):
         diff += "\n"
 
+    backticks = "`" * 3
     for i in range(3, 10):
         backticks = "`" * i
         if backticks not in diff:

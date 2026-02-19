@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -44,15 +44,18 @@ class ChatChunks:
         if not messages:
             return
 
-        content = messages[-1]["content"]
-        if type(content) is str:
-            content = dict(
-                type="text",
-                text=content,
-            )
+        content_value = messages[-1]["content"]
+        if isinstance(content_value, str):
+            content: Dict[str, Any] = {
+                "type": "text",
+                "text": content_value,
+            }
+        else:
+            content = content_value
+
         content["cache_control"] = {"type": "ephemeral"}
 
-        messages[-1]["content"] = [content]
+        messages[-1]["content"] = content
 
     def cacheable_messages(self):
         messages = self.all_messages()

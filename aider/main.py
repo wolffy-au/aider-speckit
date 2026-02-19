@@ -7,6 +7,7 @@ import traceback
 import webbrowser
 from dataclasses import fields
 from pathlib import Path
+from typing import Any
 
 try:
     import git
@@ -59,10 +60,15 @@ def check_config_files_for_yes(config_files):
 
 def get_git_root():
     """Try and guess the git repo, since the conf.yml can be at the repo root"""
+    if git is None:
+        return None
+
+    from git import InvalidGitRepositoryError, Repo
+
     try:
-        repo = git.Repo(search_parent_directories=True)
+        repo = Repo(search_parent_directories=True)
         return repo.working_tree_dir
-    except (git.InvalidGitRepositoryError, FileNotFoundError):
+    except (InvalidGitRepositoryError, FileNotFoundError):
         return None
 
 
@@ -86,8 +92,13 @@ def guessed_wrong_repo(io, git_root, fnames, git_dname):
 
 
 def make_new_repo(git_root, io):
+    if git is None:
+        return
+
+    from git import Repo
+
     try:
-        repo = git.Repo.init(git_root)
+        repo = Repo.init(git_root)
         check_gitignore(git_root, io, False)
     except ANY_GIT_ERROR as err:  # issue #1233
         io.tool_error(f"Unable to create git repo in {git_root}")
@@ -102,6 +113,9 @@ def setup_git(git_root, io):
     if git is None:
         return
 
+    from git import Repo
+    from git import exc as git_exc
+
     try:
         cwd = Path.cwd()
     except OSError:
@@ -111,7 +125,7 @@ def setup_git(git_root, io):
 
     if git_root:
         try:
-            repo = git.Repo(git_root)
+            repo = Repo(git_root)
         except ANY_GIT_ERROR:
             pass
     elif cwd == Path.home():
@@ -130,12 +144,12 @@ def setup_git(git_root, io):
 
     try:
         user_name = repo.git.config("--get", "user.name") or None
-    except git.exc.GitCommandError:
+    except git_exc.GitCommandError:
         user_name = None
 
     try:
         user_email = repo.git.config("--get", "user.email") or None
-    except git.exc.GitCommandError:
+    except git_exc.GitCommandError:
         user_email = None
 
     if user_name and user_email:
@@ -153,11 +167,15 @@ def setup_git(git_root, io):
 
 
 def check_gitignore(git_root, io, ask=True):
+    if git is None:
+        return
     if not git_root:
         return
 
+    from git import Repo
+
     try:
-        repo = git.Repo(git_root)
+        repo = Repo(git_root)
         patterns_to_add = []
 
         if not repo.ignored(".aider"):
@@ -521,8 +539,10 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
         os.environ["SSL_VERIFY"] = ""
         litellm._load_litellm()
-        litellm._lazy_module.client_session = httpx.Client(verify=False)
-        litellm._lazy_module.aclient_session = httpx.AsyncClient(verify=False)
+        module: Any = litellm._lazy_module
+        assert module is not None
+        module.client_session = httpx.Client(verify=False)
+        module.aclient_session = httpx.AsyncClient(verify=False)
         # Set verify_ssl on the model_info_manager
         models.model_info_manager.set_verify_ssl(False)
 
@@ -946,9 +966,14 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         original_read_only_fnames=read_only_fnames,
     )
 
+    max_history_tokens = (
+        args.max_chat_history_tokens
+        if args.max_chat_history_tokens is not None
+        else main_model.max_chat_history_tokens
+    )
     summarizer = ChatSummary(
         [main_model.weak_model, main_model],
-        args.max_chat_history_tokens or main_model.max_chat_history_tokens,
+        int(max_history_tokens),
     )
 
     if args.cache_prompts and args.map_refresh == "auto":

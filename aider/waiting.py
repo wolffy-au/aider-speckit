@@ -102,7 +102,7 @@ class Spinner:
         Spinner.last_frame_idx = self.frame_idx  # Update class variable
         return frame
 
-    def step(self, text: str = None) -> None:
+    def step(self, text: str | None = None) -> None:
         if text is not None:
             self.text = text
 
