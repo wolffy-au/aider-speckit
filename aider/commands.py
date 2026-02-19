@@ -25,6 +25,7 @@ from aider.run_cmd import run_cmd
 from aider.scrape import Scraper, install_playwright
 from aider.utils import is_image_file
 
+from .commands_speckit import SpeckitCommandsMixin
 from .dump import dump  # noqa: F401
 
 ANY_GIT_ERROR: Tuple[Type[BaseException], ...] = tuple(REPO_ANY_GIT_ERROR)
@@ -36,7 +37,7 @@ class SwitchCoder(Exception):
         self.placeholder = placeholder
 
 
-class Commands:
+class Commands(SpeckitCommandsMixin):
     voice = None
     scraper = None
 
@@ -306,11 +307,12 @@ class Commands:
             return
 
         first_word = words[0]
+        normalized_first_word = first_word.replace(".", "-")
         rest_inp = inp[len(words[0]) :].strip()
 
         all_commands = self.get_commands()
-        matching_commands = [cmd for cmd in all_commands if cmd.startswith(first_word)]
-        return matching_commands, first_word, rest_inp
+        matching_commands = [cmd for cmd in all_commands if cmd.startswith(normalized_first_word)]
+        return matching_commands, first_word, normalized_first_word, rest_inp
 
     def run(self, inp):
         if inp.startswith("!"):
@@ -320,13 +322,13 @@ class Commands:
         res = self.matching_commands(inp)
         if res is None:
             return
-        matching_commands, first_word, rest_inp = res
+        matching_commands, first_word, normalized_first_word, rest_inp = res
         if len(matching_commands) == 1:
             command = matching_commands[0][1:]
             self.coder.event(f"command_{command}")
             return self.do_run(command, rest_inp)
-        elif first_word in matching_commands:
-            command = first_word[1:]
+        elif normalized_first_word in matching_commands:
+            command = normalized_first_word[1:]
             self.coder.event(f"command_{command}")
             return self.do_run(command, rest_inp)
         elif len(matching_commands) > 1:

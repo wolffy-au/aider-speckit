@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -7,6 +8,7 @@ from prompt_toolkit.completion import CompleteEvent
 from prompt_toolkit.document import Document
 from rich.text import Text
 
+from aider.commands import Commands
 from aider.dump import dump  # noqa: F401
 from aider.io import AutoCompleter, ConfirmGroup, InputOutput
 from aider.utils import ChdirTemporaryDirectory
@@ -79,6 +81,7 @@ class TestInputOutput(unittest.TestCase):
             [cmd for cmd in commands.get_commands() if cmd.startswith(inp.strip().split()[0])],
             inp.strip().split()[0],
             " ".join(inp.strip().split()[1:]),
+            "",
         )
         commands.get_raw_completions.return_value = None
         commands.get_completions.side_effect = lambda cmd: (
@@ -604,6 +607,60 @@ class TestInputOutputFormatFiles(unittest.TestCase):
         self.assertEqual(
             renderables_ed, [Text("Editable:"), Text("edit1.txt"), Text("edit[markup].txt")]
         )
+
+
+class DummyCommands:
+    def __init__(self):
+        self._commands = ["/test"]
+
+    def get_commands(self):
+        return self._commands
+
+    def matching_commands(self, inp):
+        normalized = inp.replace(".", "-")
+        if normalized in self._commands:
+            return (self._commands, inp, normalized, "")
+        return ([], inp, normalized, "")
+
+    def get_raw_completions(self, cmd):
+        return None
+
+    def get_completions(self, cmd):
+        return ["test-result"]
+
+
+class TestCommandsMatching(unittest.TestCase):
+    def test_matching_commands_returns_rest_inp(self):
+        commands = Commands(None, None)
+        matches, first_word, normalized_first_word, rest = commands.matching_commands("/git status")
+        self.assertIn("/git", matches)
+        self.assertEqual(first_word, "/git")
+        self.assertEqual(normalized_first_word, "/git")
+        self.assertEqual(rest, "status")
+
+
+class TestAutoCompleterCommandCompletion(unittest.TestCase):
+    def test_auto_completer_handles_matching_signature(self):
+        commands = DummyCommands()
+        completions = []
+        with tempfile.TemporaryDirectory() as tmpdir:
+            completer = AutoCompleter(
+                root=tmpdir,
+                rel_fnames=[],
+                addable_rel_fnames=[],
+                commands=commands,
+                encoding="utf-8",
+            )
+            completions = list(
+                completer.get_command_completions(
+                    Document("/test", cursor_position=5),
+                    None,
+                    "/test",
+                    ["/test"],
+                )
+            )
+        self.assertTrue(completions)
+        self.assertTrue(any("/test" in completion.text for completion in completions))
 
 
 if __name__ == "__main__":
