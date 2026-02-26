@@ -17,3 +17,9 @@ aider/_version.py
 .gitattributes
 tmp.benchmarks/
 .docker_bash_history
+.coverage
+.python-version
+.mypy_cache/
+.pytest_cache/
+__pycache__
+.venv*
