@@ -232,7 +232,7 @@ def start_openrouter_oauth_flow(io, analytics):
 
     callback_url = f"http://localhost:{port}/callback/aider"
     auth_code = None
-    server_error = None
+    server_error = {"message": None}
     server_started = threading.Event()
     shutdown_server = threading.Event()
 
@@ -274,7 +274,6 @@ def start_openrouter_oauth_flow(io, analytics):
             pass
 
     def run_server():
-        nonlocal server_error
         try:
             with socketserver.TCPServer(("localhost", port), OAuthCallbackHandler) as httpd:
                 io.tool_output(f"Temporary server listening on {callback_url}", log_only=True)
@@ -287,7 +286,7 @@ def start_openrouter_oauth_flow(io, analytics):
                     time.sleep(0.1)
                 io.tool_output("Shutting down temporary server.", log_only=True)
         except Exception as e:
-            server_error = f"Failed to start or run temporary server: {e}"
+            server_error["message"] = f"Failed to start or run temporary server: {e}"
             server_started.set()  # Signal even if failed, error will be checked
             shutdown_server.set()  # Ensure shutdown logic proceeds
 
@@ -302,8 +301,8 @@ def start_openrouter_oauth_flow(io, analytics):
         return None
 
     # Check if server failed during startup
-    if server_error:
-        io.tool_error(server_error)
+    if server_error["message"]:
+        io.tool_error(server_error["message"])
         shutdown_server.set()  # Ensure thread exits
         server_thread.join(timeout=1)
         return None
@@ -348,9 +347,13 @@ def start_openrouter_oauth_flow(io, analytics):
     if interrupted:
         return None  # Return None if interrupted by user
 
-    if server_error:
-        io.tool_error(f"Authentication failed: {server_error}")
-        analytics.event("oauth_flow_failed", provider="openrouter", reason=server_error)
+    if server_error["message"]:
+        io.tool_error(f"Authentication failed: {server_error['message']}")
+        analytics.event(
+            "oauth_flow_failed",
+            provider="openrouter",
+            reason=server_error["message"],
+        )
         return None
 
     if not auth_code:
