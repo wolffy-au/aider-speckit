@@ -27,19 +27,23 @@ run_command "pipx install uv"
 echo "✅ Done"
 
 # Install Requirements
-# echo -e "\n📦 Installing project dependencies..."
-# run_command "uv pip sync requirements.txt \`find requirements -iname requirements-*.txt\` --system"
-
+echo -e "\n📦 Installing project dependencies..."
+uv venv --clear
+source .venv/bin/activate
+pip install --upgrade uv
+scripts/pip-compile.sh
+uv pip sync requirements.txt `find requirements -iname requirements-*.txt`
+pre-commit install
+echo "✅ Done"
 
 # Installing CLI-based AI Agents
-
 echo -e "\n🤖 Installing Aider CLI..."
 run_command "uv tool install aider-chat --from git+https://github.com/wolffy-au/aider-speckit.git"
 echo "✅ Done"
 
-# echo -e "\n🤖 Installing Specify CLI..."
-# run_command "uv tool install specify-cli --from git+https://github.com/wolffy-au/spec-kit-aider.git@feat-speckit-aider"
-# echo "✅ Done"
+echo -e "\n🤖 Installing Specify CLI..."
+run_command "uv tool install specify-cli --from git+https://github.com/wolffy-au/spec-kit-aider.git@feat-speckit-aider"
+echo "✅ Done"
 
 echo -e "\n🧹 Cleaning cache..."
 run_command "sudo apt-get autoclean"

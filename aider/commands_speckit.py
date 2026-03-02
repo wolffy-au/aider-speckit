@@ -4,11 +4,19 @@ import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
+
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from aider.coders.base_coder import Coder
     from aider.io import InputOutput
+
+
+def _load_coder_class():
+    from aider.coders.base_coder import Coder
+
+    return Coder
+
 
 SHORT_NAME_STOP_WORDS = {
     "i",
@@ -71,95 +79,132 @@ class SpeckitCommandsMixin:
     def cmd_speckit_constitution(self, args):
         "Populate the speckit constitution template into .specify/memory."
 
-        template_rel = ".specify/templates/constitution-template.md"
+        template_rel = ".aider/commands/speckit.constitution.md"
         template_path = self.coder.abs_root_path(template_rel)
         memory_rel = ".specify/memory/constitution.md"
         constitution_path = self.coder.abs_root_path(memory_rel)
-        os.makedirs(os.path.dirname(constitution_path), exist_ok=True)
 
         try:
+            if not os.path.exists(template_path):
+                self.io.tool_error(f"Template {template_rel} not found.")
+                return
             template_content = self.io.read_text(template_path)
-            if template_content is None:
+            if not template_content:
                 self.io.tool_error(f"Template {template_rel} not found.")
                 return
 
-            placeholders = self._extract_template_placeholders(template_content)
-            user_inputs = self._parse_placeholder_inputs(args or "")
-            existing_content = self.io.read_text(constitution_path) or ""
-            document_contexts = self._collect_document_contexts()
-
-            placeholder_values, manual_placeholders = self._build_placeholder_values(
-                placeholders,
-                user_inputs,
-                existing_content,
-                document_contexts,
+            prompt = template_content.replace("$ARGUMENTS", args or "")
+            Coder = _load_coder_class()
+            coder = Coder.create(
+                io=self.io,
+                from_coder=self.coder,
+                edit_format=self.coder.main_model.edit_format,
+                summarize_from_coder=False,
             )
-
-            old_version = self._extract_existing_version(existing_content)
-            bump_type = user_inputs.get("VERSION_BUMP", "patch").lower()
-            new_version = self._bump_semantic_version(old_version, bump_type)
-
-            placeholder_values["CONSTITUTION_VERSION"] = new_version
-            today_iso = datetime.now().strftime("%Y-%m-%d")
-            placeholder_values["RATIFICATION_DATE"] = self._normalize_iso_date(
-                user_inputs.get("RATIFICATION_DATE")
-                or placeholder_values.get("RATIFICATION_DATE")
-                or today_iso,
-                fallback=today_iso,
-            )
-            placeholder_values["LAST_AMENDED_DATE"] = self._normalize_iso_date(
-                user_inputs.get("LAST_AMENDED_DATE")
-                or placeholder_values.get("LAST_AMENDED_DATE")
-                or placeholder_values["RATIFICATION_DATE"],
-                fallback=placeholder_values["RATIFICATION_DATE"],
-            )
-
-            filled = self._fill_template(template_content, placeholder_values)
-            sanitized = self._sanitize_constitution_text(filled) or filled
-            try:
-                validated = self._validate_constitution_text(sanitized)
-            except ValueError as err:
-                self.io.tool_error(f"Unable to validate constitution text: {err}")
-                return
-
-            principles = self._collect_principle_summary(placeholder_values)
-            dependent_update = self._sync_dependent_templates(principles, new_version)
-            auto_template_files = dependent_update["auto"]
-            manual_template_updates = dependent_update["manual"]
-
-            manual_items = list(dict.fromkeys(manual_placeholders + manual_template_updates))
-            sync_comment = self._build_sync_report_comment(
-                new_version,
-                bump_type,
-                manual_items,
-                auto_template_files,
-                principles,
-            )
-
-            final_content = f"{sync_comment}{validated}"
-
-            self.io.write_text(constitution_path, final_content)
-            self._register_managed_file(constitution_path)
-
-            auto_updated = [constitution_path, *auto_template_files]
-            summary_lines = self._build_sync_summary(
-                old_version,
-                new_version,
-                bump_type,
-                user_inputs,
-                auto_updated,
-                manual_items,
-            )
-            for line in summary_lines:
-                self.io.tool_output(line)
+            result = coder.run(prompt)
+            os.makedirs(os.path.dirname(constitution_path), exist_ok=True)
+            self.io.write_text(constitution_path, result)
         finally:
             self.coder.drop_rel_fname(constitution_path)
 
     def cmd_speckit_specify(self, args):
         "Create or update a feature specification via the speckit specify workflow."
-        # TODO: Implement the /speckit.specify command using the helper methods defined above.
-        self.io.tool_output("The /speckit.specify command is not implemented yet.")
-        pass
+        template_rel = ".aider/commands/speckit.specify.md"
+        template_path = self.coder.abs_root_path(template_rel)
+        if not os.path.exists(template_path):
+            self.io.tool_error(f"Template {template_rel} not found.")
+            return
+        template_content = self.io.read_text(template_path)
+        if not template_content:
+            self.io.tool_error(f"Template {template_rel} not found.")
+            return
+
+        description = args or ""
+        filled_template = template_content.replace("$ARGUMENTS", description)
+        short_name = self._generate_short_name(description)
+        feature_number = self._determine_next_feature_number(short_name)
+        result = self._run_feature_creation_script(
+            ".specify/scripts/bash/create-new-feature.sh",
+            description,
+            short_name,
+            feature_number,
+        )
+        if not result:
+            self.io.tool_error("Specification workspace creation failed.")
+            return
+        if "SPEC_FILE" not in result or "BRANCH_NAME" not in result:
+            return
+
+        spec_file = result["SPEC_FILE"]
+        branch_name = result["BRANCH_NAME"]
+        feature_name_hint = self._feature_name_from_branch(branch_name)
+
+        placeholder_checklist = self._write_spec_checklist(spec_file, feature_name_hint)
+        if placeholder_checklist:
+            self._register_managed_file(placeholder_checklist)
+
+        root = self.coder.root or os.getcwd()
+        spec_rel = os.path.relpath(spec_file, root).replace(os.sep, "/")
+        self._register_managed_file(spec_file)
+        try:
+            feature_number_str = f"{int(feature_number):03d}"
+        except (TypeError, ValueError):
+            feature_number_str = str(feature_number)
+
+        spec_content = self.io.read_text(spec_file) or ""
+        checklist_content = self.io.read_text(placeholder_checklist) or ""
+        date_str = datetime.now().strftime("%B %d, %Y")
+        metadata_replacements = {
+            "[FEATURE NAME]": feature_name_hint,
+            "[FEATURE SHORT NAME]": short_name,
+            "[BRANCH NAME]": branch_name,
+            "[FEATURE NUMBER]": feature_number_str,
+            "[SPEC RELATIVE PATH]": spec_rel,
+        }
+
+        prompt = self._build_spec_generation_prompt(
+            description,
+            filled_template,
+            metadata_replacements,
+            branch_name,
+            date_str,
+            spec_content,
+            checklist_content,
+        )
+        Coder = _load_coder_class()
+        coder = Coder.create(
+            io=self.io,
+            from_coder=self.coder,
+            edit_format=self.coder.main_model.edit_format,
+            summarize_from_coder=False,
+        )
+        response = coder.run(prompt)
+        if self._response_requests_spec_and_checklist(response):
+            coder = Coder.create(
+                io=self.io,
+                from_coder=self.coder,
+                edit_format=self.coder.main_model.edit_format,
+                summarize_from_coder=False,
+            )
+            response = coder.run(prompt)
+
+        trimmed = self._trim_to_feature_header(response or "")
+        if not trimmed or not trimmed.lstrip().lower().startswith("# feature specification:"):
+            self.io.tool_error(
+                "Specification generation failed: assistant response did not start "
+                "with '# Feature Specification:'."
+            )
+            self.io.tool_output("Assistant response:")
+            self.io.tool_output(response or "")
+            return
+
+        self.io.write_text(spec_file, trimmed)
+        self._register_managed_file(spec_file)
+
+        final_feature_name = self._extract_feature_name(trimmed, feature_name_hint)
+        final_checklist = self._write_spec_checklist(spec_file, final_feature_name)
+        if final_checklist:
+            self._register_managed_file(final_checklist)
 
     def cmd_speckit_analyze(self, args):
         (
@@ -419,7 +464,9 @@ class SpeckitCommandsMixin:
         os.makedirs(checklist_dir, exist_ok=True)
         checklist_path = os.path.join(checklist_dir, "requirements.md")
         template_path = self.coder.abs_root_path(".specify/templates/checklist-template.md")
-        template_content = self.io.read_text(template_path)
+        template_content = None
+        if os.path.exists(template_path):
+            template_content = self.io.read_text(template_path)
         checklist_content = None
 
         if template_content:
@@ -595,6 +642,16 @@ class SpeckitCommandsMixin:
             return text
         match = re.search(r"(?mi)^#\s+feature specification:", text)
         return text[match.start() :] if match else text
+
+    @staticmethod
+    def _feature_name_from_branch(branch_name):
+        if not branch_name:
+            return branch_name
+        cleaned = re.sub(r"^\d+-", "", branch_name)
+        parts = [part for part in re.split(r"[-_\s]+", cleaned) if part]
+        if not parts:
+            return branch_name
+        return " ".join(part.capitalize() for part in parts)
 
     @staticmethod
     def _response_requests_spec_and_checklist(response):
@@ -1014,25 +1071,63 @@ class SpeckitCommandsMixin:
         self,
         version,
         bump_type,
-        manual_followups,
+        old_version,
+        principle_diffs,
+        section_added,
+        section_removed,
+        governance_changed,
         auto_files,
+        manual_followups,
         principles,
     ):
         date_iso = datetime.now().strftime("%Y-%m-%d")
         auto_unique = list(dict.fromkeys(auto_files))
-        auto_list = ", ".join(self._format_file_reference(path) for path in auto_unique) or "none"
-        manual_list = ", ".join(manual_followups) if manual_followups else "none"
+        auto_desc = (
+            ", ".join(self._format_file_reference(path) for path in auto_unique)
+            or "none"
+        )
+        principle_lines = []
+        for diff in principle_diffs or []:
+            diff_type = diff.get("type")
+            if diff_type == "added":
+                principle_lines.append(f"- Added: {diff.get('name')}")
+            elif diff_type == "removed":
+                principle_lines.append(f"- Removed: {diff.get('name')}")
+            elif diff_type == "modified":
+                name = diff.get("name")
+                principle_lines.append(
+                    f"- Modified: {name} "
+                    f"(was \"{diff.get('old')}\" → \"{diff.get('new')}\")"
+                )
+        if not principle_lines:
+            principle_lines = ["- None"]
+        principle_changes_section = "\n".join(principle_lines)
+        section_added = section_added or []
+        section_removed = section_removed or []
+        sections_added_desc = ", ".join(section_added) or "none"
+        sections_removed_desc = ", ".join(section_removed) or "none"
+        manual_section = (
+            "\n".join(f"- {item}" for item in manual_followups)
+            if manual_followups
+            else "- None"
+        )
         principle_line = (
             "; ".join(f"{idx}. {item['name']}" for idx, item in enumerate(principles, start=1))
             or "not defined"
         )
+        governance_status = "Yes" if governance_changed else "No"
         return (
             "<!-- Sync Impact Report\n"
-            f"Version: {version}\n"
-            f"Bump: {bump_type}\n"
+            f"Version: {old_version or 'n/a'} → {version} ({bump_type} bump)\n"
             f"Date: {date_iso}\n"
-            f"Auto-updated: {auto_list}\n"
-            f"Manual follow-up: {manual_list}\n"
+            f"Governance changed: {governance_status}\n"
+            "Principle changes:\n"
+            f"{principle_changes_section}\n"
+            f"Sections added: {sections_added_desc}\n"
+            f"Sections removed: {sections_removed_desc}\n"
+            f"Auto-updated templates (✅): {auto_desc}\n"
+            "Manual follow-ups (⚠ Deferred TODOs):\n"
+            f"{manual_section}\n"
             f"Active principles: {principle_line}\n"
             "-->\n\n"
         )
@@ -1049,22 +1144,112 @@ class SpeckitCommandsMixin:
         user_inputs,
         auto_files,
         manual_followups,
+        principle_diffs,
+        section_added,
+        section_removed,
+        governance_changed,
     ):
         auto_list = list(dict.fromkeys(auto_files))
-        auto_desc = ", ".join(self._format_file_reference(path) for path in auto_list) or "none"
+        auto_desc = (
+            ", ".join(self._format_file_reference(path) for path in auto_list) or "none"
+        )
         reason = (
             "User requested the bump via VERSION_BUMP argument."
             if "VERSION_BUMP" in user_inputs
             else f"Automatic {bump_type} bump to capture the refreshed constitution."
         )
+        principle_diffs = principle_diffs or []
+        principle_changes_count = len(principle_diffs)
+        change_parts = []
+        if principle_changes_count:
+            added_names = [
+                diff["name"] for diff in principle_diffs if diff.get("type") == "added"
+            ]
+            removed_names = [
+                diff["name"] for diff in principle_diffs if diff.get("type") == "removed"
+            ]
+            modified_names = [
+                diff["name"] for diff in principle_diffs if diff.get("type") == "modified"
+            ]
+            if added_names:
+                change_parts.append(f"added {len(added_names)} ({', '.join(added_names)})")
+            if removed_names:
+                change_parts.append(f"removed {len(removed_names)} ({', '.join(removed_names)})")
+            if modified_names:
+                change_parts.append(
+                    f"modified {len(modified_names)} ({', '.join(modified_names)})"
+                )
+        if principle_changes_count:
+            if change_parts:
+                principle_summary = (
+                    f"Principle changes: {principle_changes_count} ({'; '.join(change_parts)})."
+                )
+            else:
+                principle_summary = f"Principle changes: {principle_changes_count}."
+        else:
+            principle_summary = "Principle changes: none."
+        section_added = section_added or []
+        section_removed = section_removed or []
+        sections_added_desc = ", ".join(section_added) or "none"
+        sections_removed_desc = ", ".join(section_removed) or "none"
         summary = [
             f"Constitution version: {old_version or '0.0.0'} → {new_version} ({bump_type} bump).",
             f"Version bump reason: {reason}.",
+            principle_summary,
+            f"Sections added: {sections_added_desc}; removed: {sections_removed_desc}.",
             f"Auto-updated files: {auto_desc}.",
+            f"Governance changes detected: {'yes' if governance_changed else 'no'}.",
         ]
         if manual_followups:
-            summary.append(f"Manual follow-up required for: {', '.join(manual_followups)}.")
+            summary.append(
+                f"Manual follow-up required for: {', '.join(manual_followups)}."
+            )
         else:
             summary.append("Manual follow-up required for: none.")
-        summary.append(f"Suggested commit message: chore: refresh constitution to v{new_version}")
+        summary.append(
+            f"Suggested commit message: chore: refresh constitution to v{new_version}"
+        )
         return summary
+
+    def _validate_governance_requirements(self, governance_text):
+        if not governance_text or not governance_text.strip():
+            raise ValueError("Governance section cannot be empty.")
+        normalized = governance_text.lower()
+        missing = []
+        if "amend" not in normalized:
+            missing.append("amendment procedure")
+        if "version" not in normalized:
+            missing.append("versioning policy")
+        if not any(keyword in normalized for keyword in ("compliance", "audit", "review")):
+            missing.append("compliance/review expectations")
+        if missing:
+            raise ValueError(
+                "Governance section must mention " + ", ".join(missing) + "."
+            )
+
+    def _diff_principles(self, old, new):
+        old = old or []
+        new = new or []
+        diffs = []
+        old_map = {name: desc for name, desc in old}
+        new_map = {name: desc for name, desc in new}
+        for name, desc in new:
+            if name not in old_map:
+                diffs.append({"type": "added", "name": name})
+            else:
+                old_desc = old_map[name]
+                if old_desc != desc:
+                    diffs.append(
+                        {"type": "modified", "name": name, "old": old_desc, "new": desc}
+                    )
+        for name, _ in old:
+            if name not in new_map:
+                diffs.append({"type": "removed", "name": name})
+        return diffs
+
+    def _diff_sections(self, old, new):
+        old_names = [name for name, _ in (old or [])]
+        new_names = [name for name, _ in (new or [])]
+        added = [name for name in new_names if name not in old_names]
+        removed = [name for name in old_names if name not in new_names]
+        return added, removed
