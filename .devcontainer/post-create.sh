@@ -23,17 +23,7 @@ run_command() {
 
 # Installing UV (Python package manager)
 echo -e "\n🐍 Installing UV - Python Package Manager..."
-run_command "pipx install uv"
-echo "✅ Done"
-
-# Install Requirements
-echo -e "\n📦 Installing project dependencies..."
-uv venv --clear
-source .venv/bin/activate
-pip install --upgrade uv
-scripts/pip-compile.sh
-uv pip sync requirements.txt `find requirements -iname requirements-*.txt`
-pre-commit install
+run_command "python -m pip install --upgrade pip uv"
 echo "✅ Done"
 
 # Installing CLI-based AI Agents

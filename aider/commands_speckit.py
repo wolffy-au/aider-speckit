@@ -101,9 +101,10 @@ class SpeckitCommandsMixin:
                 edit_format=self.coder.main_model.edit_format,
                 summarize_from_coder=False,
             )
-            result = coder.run(prompt)
-            os.makedirs(os.path.dirname(constitution_path), exist_ok=True)
-            self.io.write_text(constitution_path, result)
+            _ = coder.run(prompt)
+            # result = coder.run(prompt)
+            # os.makedirs(os.path.dirname(constitution_path), exist_ok=True)
+            # self.io.write_text(constitution_path, result)
         finally:
             self.coder.drop_rel_fname(constitution_path)
 
@@ -1082,10 +1083,7 @@ class SpeckitCommandsMixin:
     ):
         date_iso = datetime.now().strftime("%Y-%m-%d")
         auto_unique = list(dict.fromkeys(auto_files))
-        auto_desc = (
-            ", ".join(self._format_file_reference(path) for path in auto_unique)
-            or "none"
-        )
+        auto_desc = ", ".join(self._format_file_reference(path) for path in auto_unique) or "none"
         principle_lines = []
         for diff in principle_diffs or []:
             diff_type = diff.get("type")
@@ -1096,8 +1094,7 @@ class SpeckitCommandsMixin:
             elif diff_type == "modified":
                 name = diff.get("name")
                 principle_lines.append(
-                    f"- Modified: {name} "
-                    f"(was \"{diff.get('old')}\" → \"{diff.get('new')}\")"
+                    f"- Modified: {name} (was \"{diff.get('old')}\" → \"{diff.get('new')}\")"
                 )
         if not principle_lines:
             principle_lines = ["- None"]
@@ -1107,9 +1104,7 @@ class SpeckitCommandsMixin:
         sections_added_desc = ", ".join(section_added) or "none"
         sections_removed_desc = ", ".join(section_removed) or "none"
         manual_section = (
-            "\n".join(f"- {item}" for item in manual_followups)
-            if manual_followups
-            else "- None"
+            "\n".join(f"- {item}" for item in manual_followups) if manual_followups else "- None"
         )
         principle_line = (
             "; ".join(f"{idx}. {item['name']}" for idx, item in enumerate(principles, start=1))
@@ -1150,9 +1145,7 @@ class SpeckitCommandsMixin:
         governance_changed,
     ):
         auto_list = list(dict.fromkeys(auto_files))
-        auto_desc = (
-            ", ".join(self._format_file_reference(path) for path in auto_list) or "none"
-        )
+        auto_desc = ", ".join(self._format_file_reference(path) for path in auto_list) or "none"
         reason = (
             "User requested the bump via VERSION_BUMP argument."
             if "VERSION_BUMP" in user_inputs
@@ -1162,9 +1155,7 @@ class SpeckitCommandsMixin:
         principle_changes_count = len(principle_diffs)
         change_parts = []
         if principle_changes_count:
-            added_names = [
-                diff["name"] for diff in principle_diffs if diff.get("type") == "added"
-            ]
+            added_names = [diff["name"] for diff in principle_diffs if diff.get("type") == "added"]
             removed_names = [
                 diff["name"] for diff in principle_diffs if diff.get("type") == "removed"
             ]
@@ -1176,9 +1167,7 @@ class SpeckitCommandsMixin:
             if removed_names:
                 change_parts.append(f"removed {len(removed_names)} ({', '.join(removed_names)})")
             if modified_names:
-                change_parts.append(
-                    f"modified {len(modified_names)} ({', '.join(modified_names)})"
-                )
+                change_parts.append(f"modified {len(modified_names)} ({', '.join(modified_names)})")
         if principle_changes_count:
             if change_parts:
                 principle_summary = (
@@ -1201,14 +1190,10 @@ class SpeckitCommandsMixin:
             f"Governance changes detected: {'yes' if governance_changed else 'no'}.",
         ]
         if manual_followups:
-            summary.append(
-                f"Manual follow-up required for: {', '.join(manual_followups)}."
-            )
+            summary.append(f"Manual follow-up required for: {', '.join(manual_followups)}.")
         else:
             summary.append("Manual follow-up required for: none.")
-        summary.append(
-            f"Suggested commit message: chore: refresh constitution to v{new_version}"
-        )
+        summary.append(f"Suggested commit message: chore: refresh constitution to v{new_version}")
         return summary
 
     def _validate_governance_requirements(self, governance_text):
@@ -1223,9 +1208,7 @@ class SpeckitCommandsMixin:
         if not any(keyword in normalized for keyword in ("compliance", "audit", "review")):
             missing.append("compliance/review expectations")
         if missing:
-            raise ValueError(
-                "Governance section must mention " + ", ".join(missing) + "."
-            )
+            raise ValueError("Governance section must mention " + ", ".join(missing) + ".")
 
     def _diff_principles(self, old, new):
         old = old or []
@@ -1239,9 +1222,7 @@ class SpeckitCommandsMixin:
             else:
                 old_desc = old_map[name]
                 if old_desc != desc:
-                    diffs.append(
-                        {"type": "modified", "name": name, "old": old_desc, "new": desc}
-                    )
+                    diffs.append({"type": "modified", "name": name, "old": old_desc, "new": desc})
         for name, _ in old:
             if name not in new_map:
                 diffs.append({"type": "removed", "name": name})
